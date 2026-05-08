@@ -126,6 +126,16 @@ python -m src.main --trend --years 2024,2025 --no-cache
 ### 補助スクリプト
 
 ```bash
+# トリガー比較（旧ロジック vs 新ロジック）
+python compare_triggers.py              # コンソール表示のみ
+python compare_triggers.py --csv        # CSV出力（output/trigger_comparison.csv）
+python compare_triggers.py --csv -o out.csv  # 出力先を指定
+python compare_triggers.py --holding-threshold -15.0  # 閾値変更
+
+# トリガー企業の大量保有報告書を一括検索
+python search_trigger_holdings.py       # EDINET全量スキャン → CSV出力
+python search_trigger_holdings.py --use-cache  # キャッシュ利用（API不要）
+
 # 特定企業の大量保有報告書をスキャンしアクティビスト判定
 python check_activists.py
 
@@ -156,18 +166,24 @@ python fetch_holdings.py
 │   ├── test_proposal_classifier.py
 │   ├── test_trend_analyzer.py
 │   └── test_trend_cache.py
+├── compare_triggers.py         # トリガー比較（旧ロジック vs 新ロジック）
+├── search_trigger_holdings.py  # トリガー企業の大量保有報告書一括検索
 ├── check_activists.py          # アクティビスト判定スクリプト（単体実行用）
 ├── fetch_holdings.py           # 保有割合抽出スクリプト（単体実行用）
 ├── inspect_doc.py              # EDINET文書の中身確認用
 ├── output/                     # 出力先（.gitignore対象）
 │   ├── trend_2024_2025.csv     # Step 1: 全企業トレンド（約15,000行）
-│   ├── activist_analysis.csv   # Step 2: 注目企業リスト（手動分析）
-│   ├── activist_holdings_timeline.csv  # Step 3: アクティビスト保有推移
+│   ├── trigger_comparison.csv  # トリガー比較結果（314行）
+│   ├── trigger_holdings.csv    # トリガー企業の大量保有報告書・保有者別（825行）
+│   ├── trigger_holdings_summary.csv  # トリガー企業の大量保有サマリー（288行）
+│   ├── activist_holdings_timeline.csv  # アクティビスト保有推移（手動分析）
+│   ├── activist_analysis.csv   # 注目企業リスト（手動分析）
 │   ├── activist_check.csv      # check_activists.py の出力
 │   ├── activist_holdings.csv   # fetch_holdings.py の出力
 │   └── cache/                  # EDINET取得データのキャッシュ（JSON）
 │       ├── 2024_meetings.json
 │       ├── 2025_meetings.json
+│       ├── tairyo_scan.json    # 大量保有報告書全量スキャン（35,950件）
 │       └── tairyo_docs.json
 ├── .env                        # APIキー（.gitignore対象）
 ├── .env.example
@@ -193,13 +209,51 @@ python fetch_holdings.py
 | 変動(pp) | 前年比の変動幅 |
 | アラート | DECLINING / NEW_SHAREHOLDER |
 
-### activist_analysis.csv（Step 2）
+### trigger_comparison.csv
+
+旧ロジック（株主提案ありのみ）と新ロジック（3条件）のトリガー比較。`compare_triggers.py --csv` で生成。
+
+| カラム | 説明 |
+|--------|------|
+| 証券コード / 企業名 | 対象企業 |
+| ステータス | 新規追加 / 既存継続 / 旧のみ |
+| 条件A:賛成率低下 | 会社提案の賛成率が10pp以上低下 → ○ |
+| 条件B:新規株主提案 | 前年になかった株主提案が出現 → ○ |
+| 条件C:会社提案否決 | 会社提案が否決（候補者50%未満含む）→ ○ |
+| 条件A〜C詳細 | 該当した議案/候補者の具体的内容 |
+
+### trigger_holdings.csv
+
+トリガー企業の大量保有報告書・保有者別タイムライン。`search_trigger_holdings.py` で生成。
+
+| カラム | 説明 |
+|--------|------|
+| 証券コード / 企業名 | トリガー対象企業 |
+| 保有者名 | 報告書の提出者名 |
+| 最新保有割合(%) | 直近の保有比率 |
+| 保有割合推移 | `24/03: 7.62% → 24/08: 4.44%` 形式の時系列 |
+| 保有目的 | 純投資 / 重要提案行為 等 |
+| トリガー条件 | A:賛成率低下 / B:新規株主提案 / C:会社提案否決 |
+| 報告書件数 | その保有者の報告書数 |
+
+### trigger_holdings_summary.csv
+
+トリガー企業の大量保有報告書・企業単位サマリー。`search_trigger_holdings.py` で生成。
+
+| カラム | 説明 |
+|--------|------|
+| 大量保有報告書 | あり / なし |
+| 保有者数 | 報告書を出した保有者の数 |
+| 保有者一覧 | `保有者名(保有割合%)` のサマリー |
+| トリガー条件 | A / B / C のどれに該当したか |
+
+### activist_analysis.csv（手動分析）
 
 注目企業の詳細分析（手動まとめ）。条件列:
 - **両方**: DECLINING + NEW_SHAREHOLDER 両方該当
 - **新規株主提案**: NEW_SHAREHOLDER のみ該当
 
-### activist_holdings_timeline.csv（Step 3）
+### activist_holdings_timeline.csv（手動分析）
 
 アクティビストの保有割合推移。IRBANKの大量保有（5%ルール）ページから取得。
 各投資家を個別行で管理し、共同保有の場合は備考に合計値を記載。
@@ -222,6 +276,14 @@ python fetch_holdings.py
 - JPX 株主総会情報: https://www.jpx.co.jp/listing/event-schedules/shareholders-mtg/index.html
 
 ## 修正履歴
+
+### approval_rate=0.0 パーサーバグ修正（2026-05-08）
+
+| 問題 | 修正内容 |
+|------|----------|
+| `_parse_result_line` で賛成率抽出失敗時に `rate = 0.0` をフォールバック設定 | `rate = None` に変更（983件の偽0.0%を解消） |
+| `_parse_grouped_candidates` で `pending_rate` が None のとき `0.0` を設定 | `r = pending_rate`（None のまま伝搬）に変更 |
+| `has_rejected_company_proposals` が 0.0% を否決と誤判定 | `approval_rate == 0.0` かつ `votes_for > 0 or None` の場合はパーサーバグとしてスキップ |
 
 ### P0修正（2026-05-08）
 
