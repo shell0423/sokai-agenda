@@ -248,3 +248,124 @@ class TestTrendAnalyzer:
         assert len(report.all_trends) > len(
             report.declining_proposals
         )
+
+    def test_get_alert_sec_codes_declining(self) -> None:
+        """会社提案の賛成率が閾値以上低下した企業が抽出される。"""
+        analyzer = TrendAnalyzer(threshold=-5.0)
+        report = analyzer.analyze(
+            {2024: [_taiyo_2024()], 2025: [_taiyo_2025()]}
+        )
+        # 佐藤英志 -51.86pp → -10.0 閾値でアラート対象
+        codes = report.get_alert_sec_codes(holding_threshold=-10.0)
+        assert "4626" in codes
+
+    def test_get_alert_sec_codes_new_shareholder(self) -> None:
+        """新規株主提案がある企業が抽出される。"""
+        analyzer = TrendAnalyzer(threshold=-5.0)
+        report = analyzer.analyze(
+            {2024: [_taiyo_2024()], 2025: [_taiyo_2025()]}
+        )
+        codes = report.get_alert_sec_codes(holding_threshold=-10.0)
+        # 太陽HDは新規株主提案もある
+        assert "4626" in codes
+
+    def test_get_alert_sec_codes_strict_threshold(self) -> None:
+        """閾値を厳格にすると賛成率低下でのアラートが減る。"""
+        analyzer = TrendAnalyzer(threshold=-5.0)
+        report = analyzer.analyze(
+            {2024: [_taiyo_2024()], 2025: [_taiyo_2025()]}
+        )
+        # -60.0 閾値: 佐藤英志の-51.86ppでは引っかからない
+        # ただし新規株主提案は閾値に関係なく含まれる
+        codes = report.get_alert_sec_codes(holding_threshold=-60.0)
+        # 新規株主提案で含まれる
+        assert "4626" in codes
+
+
+class TestMeetingResultRejected:
+    """has_rejected_company_proposals のテスト。"""
+
+    def test_rejected_proposal(self) -> None:
+        """会社提案が否決された場合にTrueを返す。"""
+        meeting = MeetingResult(
+            doc_id="TEST",
+            edinet_code="E00001",
+            sec_code="99990",
+            company_name="テスト社",
+            submit_date="2025-06-01",
+            proposals=[
+                Proposal(
+                    number=1,
+                    title="剰余金の処分の件",
+                    proposal_type=ProposalType.COMPANY,
+                    result=VoteResult.REJECTED,
+                    approval_rate=45.0,
+                ),
+            ],
+        )
+        assert meeting.has_rejected_company_proposals is True
+
+    def test_candidate_below_50(self) -> None:
+        """候補者の賛成率が50%未満なら否決扱い。"""
+        meeting = MeetingResult(
+            doc_id="TEST",
+            edinet_code="E00001",
+            sec_code="99990",
+            company_name="テスト社",
+            submit_date="2025-06-01",
+            proposals=[
+                Proposal(
+                    number=1,
+                    title="取締役選任の件",
+                    proposal_type=ProposalType.COMPANY,
+                    candidates=[
+                        Candidate(
+                            name="山田 太郎",
+                            approval_rate=95.0,
+                        ),
+                        Candidate(
+                            name="佐藤 花子",
+                            approval_rate=46.09,
+                        ),
+                    ],
+                ),
+            ],
+        )
+        assert meeting.has_rejected_company_proposals is True
+
+    def test_all_approved(self) -> None:
+        """全議案が可決ならFalse。"""
+        meeting = _taiyo_2024()
+        assert meeting.has_rejected_company_proposals is False
+
+    def test_shareholder_rejected_not_counted(self) -> None:
+        """株主提案の否決はカウントしない。"""
+        meeting = MeetingResult(
+            doc_id="TEST",
+            edinet_code="E00001",
+            sec_code="99990",
+            company_name="テスト社",
+            submit_date="2025-06-01",
+            proposals=[
+                Proposal(
+                    number=1,
+                    title="剰余金の処分の件",
+                    proposal_type=ProposalType.COMPANY,
+                    result=VoteResult.APPROVED,
+                    approval_rate=95.0,
+                ),
+                Proposal(
+                    number=2,
+                    title="解任の件",
+                    proposal_type=ProposalType.SHAREHOLDER,
+                    result=VoteResult.REJECTED,
+                    approval_rate=30.0,
+                ),
+            ],
+        )
+        assert meeting.has_rejected_company_proposals is False
+
+    def test_taiyo_2025_has_rejected(self) -> None:
+        """太陽HD 2025年は佐藤英志が否決。"""
+        meeting = _taiyo_2025()
+        assert meeting.has_rejected_company_proposals is True

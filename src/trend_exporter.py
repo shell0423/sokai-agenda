@@ -9,11 +9,15 @@ from src.models import ApprovalTrend, TrendReport
 logger = logging.getLogger(__name__)
 
 
-def print_trend_report(report: TrendReport) -> None:
+def print_trend_report(
+    report: TrendReport,
+    holdings_map: dict[str, list] | None = None,
+) -> None:
     """トレンド分析結果をコンソールに表示する。
 
     Args:
         report: トレンド分析レポート。
+        holdings_map: edinet_code → HoldingContextリスト。
     """
     # 賛成率低下アラート
     if report.declining_proposals:
@@ -58,12 +62,31 @@ def print_trend_report(report: TrendReport) -> None:
     else:
         print("\n  新規株主提案: なし")
 
+    # 大量保有報告書検索結果
+    if holdings_map:
+        print(f"\n{'='*60}")
+        print("  🔍 大量保有報告書検索結果")
+        print(f"{'='*60}")
+        for edinet_code, holders in holdings_map.items():
+            for h in holders:
+                ratio_str = (
+                    f"{h.ratio_held:.2f}%"
+                    if h.ratio_held
+                    else "不明"
+                )
+                print(
+                    f"  {edinet_code}: {h.holder_name}"
+                    f" ({ratio_str})"
+                )
+
     # サマリー
+    n_holdings = len(holdings_map) if holdings_map else 0
     print(f"\n{'='*60}")
     print(
         f"  トレンド合計: {len(report.all_trends)}件"
         f" / 低下アラート: {len(report.declining_proposals)}件"
         f" / 新規株主提案: {len(report.new_shareholder_proposals)}社"
+        f" / 大量保有検索: {n_holdings}社"
     )
     print(f"{'='*60}")
 
