@@ -21,7 +21,16 @@ class EdinetApiError(Exception):
 
 
 class EdinetClient:
-    """EDINET APIクライアント。"""
+    """EDINET APIクライアント。
+
+    コンテキストマネージャとして使用可能。スキャン中のHTTPコネクションを
+    再利用し、パフォーマンスを向上させる。
+
+    Usage::
+
+        with EdinetClient(api_key="...") as client:
+            docs = client.get_extraordinary_reports(date.today())
+    """
 
     def __init__(
         self, api_key: str, timeout: int = 30, rate_limit: float = 1.0
@@ -31,6 +40,19 @@ class EdinetClient:
             {"Ocp-Apim-Subscription-Key": api_key} if api_key else {}
         )
         self._limiter = RateLimiter(min_interval=rate_limit)
+        self._client = httpx.Client(
+            timeout=self._timeout, headers=self._headers
+        )
+
+    def close(self) -> None:
+        """HTTPクライアントを閉じる。"""
+        self._client.close()
+
+    def __enter__(self) -> EdinetClient:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()
 
     def _get_documents(self, target_date: date) -> list[dict]:
         """指定日の全書類メタデータを取得する。
@@ -49,11 +71,8 @@ class EdinetClient:
         params = {"date": target_date.isoformat(), "type": 2}
 
         try:
-            with httpx.Client(timeout=self._timeout) as client:
-                response = client.get(
-                    url, params=params, headers=self._headers
-                )
-                response.raise_for_status()
+            response = self._client.get(url, params=params)
+            response.raise_for_status()
         except httpx.HTTPError as e:
             raise EdinetApiError(
                 f"EDINET API呼び出し失敗 ({target_date}): {e}"
@@ -160,11 +179,10 @@ class EdinetClient:
         params = {"type": 1}
 
         try:
-            with httpx.Client(timeout=60) as client:
-                response = client.get(
-                    url, params=params, headers=self._headers
-                )
-                response.raise_for_status()
+            response = self._client.get(
+                url, params=params, timeout=60
+            )
+            response.raise_for_status()
         except httpx.HTTPError as e:
             raise EdinetApiError(
                 f"書類ダウンロード失敗 ({doc_id}): {e}"

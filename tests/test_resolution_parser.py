@@ -469,3 +469,177 @@ class TestTitleNextLine:
         # 山田: 95000 / (95000+5000+500) = 94.53%
         assert p.candidates[1].approval_rate is not None
         assert abs(p.candidates[1].approval_rate - 94.53) < 0.1
+
+
+# 中国電力パターン: タイトルなし + 「賛成」「128,451個」等がタイトルに混入
+CHUGOKU_PATTERN_HTML = """<?xml version="1.0" encoding="utf-8"?>
+<html xmlns:ix="http://www.xbrl.org/2008/inlineXBRL"
+      xmlns:jpcrp-esr_cor="http://disclosure.edinet-fsa.go.jp/taxonomy/jpcrp-esr/2021-11-01/jpcrp-esr_cor">
+<head><title>test</title></head>
+<body>
+<ix:nonNumeric name="jpcrp-esr_cor:ResolutionOfShareholdersMeetingTextBlock" contextRef="FilingDateInstant" escape="true">
+<p>(3）当該決議事項に対する賛成、反対及び棄権の意思の表示に係る議決権の数、当該決議事項が可決されるための要件並びに当該決議の結果</p>
+<p>〈会社提案〉</p>
+<table>
+<tr><td>決議事項</td><td>賛成（個）</td><td>反対（個）</td><td>棄権（個）</td></tr>
+<tr><td>第１号議案　剰余金処分の件</td></tr>
+<tr><td>500,000</td></tr>
+<tr><td>3,000</td></tr>
+<tr><td>200</td></tr>
+<tr><td>（注）１</td></tr>
+<tr><td>可決（99.36％）</td></tr>
+</table>
+<p>〈株主提案〉</p>
+<table>
+<tr><td>決議事項</td><td>賛成（個）</td><td>反対（個）</td><td>棄権（個）</td></tr>
+<tr><td>第２号議案</td></tr>
+<tr><td>賛成</td></tr>
+<tr><td>128,451個</td></tr>
+<tr><td>131,653個</td></tr>
+<tr><td>135,952個</td></tr>
+<tr><td>否決（25.51％）</td></tr>
+<tr><td>第３号議案</td></tr>
+<tr><td>200,003個</td></tr>
+<tr><td>262,897個</td></tr>
+<tr><td>40,300個</td></tr>
+<tr><td>否決（39.75％）</td></tr>
+</table>
+<p>(4）議決権の数に</p>
+</ix:nonNumeric>
+</body>
+</html>"""
+
+
+class TestChugokuPattern:
+    """中国電力パターン: 「賛成」「128,451個」等がタイトルに混入しないことを
+    確認するテスト。"""
+
+    @pytest.fixture()
+    def proposals(self) -> list:
+        parser = ResolutionParser()
+        zip_bytes = _make_zip(CHUGOKU_PATTERN_HTML)
+        result = parser.parse_zip(zip_bytes)
+        assert result is not None
+        return result
+
+    def test_sansei_not_as_title(self, proposals: list) -> None:
+        """「賛成」がタイトルとして使用されない。"""
+        for p in proposals:
+            assert p.title != "賛成"
+
+    def test_vote_count_not_as_title(self, proposals: list) -> None:
+        """「128,451個」等の票数がタイトルとして使用されない。"""
+        for p in proposals:
+            assert "個" not in p.title
+
+    def test_company_proposal_has_title(self, proposals: list) -> None:
+        """会社提案の議案タイトルは正常に取得できる。"""
+        p1 = proposals[0]
+        assert p1.number == 1
+        assert p1.title == "剰余金処分の件"
+        assert p1.proposal_type == ProposalType.COMPANY
+
+    def test_shareholder_proposals_detected(self, proposals: list) -> None:
+        """株主提案が正しく検出される。"""
+        shareholder = [
+            p for p in proposals
+            if p.proposal_type == ProposalType.SHAREHOLDER
+        ]
+        assert len(shareholder) >= 1
+
+
+# 注記参照がタイトルに混入するパターン
+NOTE_AS_TITLE_HTML = """<?xml version="1.0" encoding="utf-8"?>
+<html xmlns:ix="http://www.xbrl.org/2008/inlineXBRL"
+      xmlns:jpcrp-esr_cor="http://disclosure.edinet-fsa.go.jp/taxonomy/jpcrp-esr/2021-11-01/jpcrp-esr_cor">
+<head><title>test</title></head>
+<body>
+<ix:nonNumeric name="jpcrp-esr_cor:ResolutionOfShareholdersMeetingTextBlock" contextRef="FilingDateInstant" escape="true">
+<p>(3）当該決議事項に対する賛成、反対及び棄権の意思の表示に係る議決権の数</p>
+<table>
+<tr><td>決議事項</td><td>賛成（個）</td><td>反対（個）</td><td>棄権（個）</td></tr>
+<tr><td>第１号議案</td></tr>
+<tr><td>（注）４</td></tr>
+<tr><td>50,000</td></tr>
+<tr><td>10,000</td></tr>
+<tr><td>500</td></tr>
+<tr><td>否決（82.64％）</td></tr>
+</table>
+<p>(4）議決権の数</p>
+</ix:nonNumeric>
+</body>
+</html>"""
+
+
+class TestNoteAsTitle:
+    """注記参照がタイトルに混入しないことを確認するテスト。"""
+
+    @pytest.fixture()
+    def proposals(self) -> list:
+        parser = ResolutionParser()
+        zip_bytes = _make_zip(NOTE_AS_TITLE_HTML)
+        result = parser.parse_zip(zip_bytes)
+        assert result is not None
+        return result
+
+    def test_note_not_as_title(self, proposals: list) -> None:
+        """「（注）４」がタイトルとして使用されない。"""
+        p = proposals[0]
+        assert "注" not in p.title
+
+
+class TestIsNonTitleLine:
+    """_is_non_title_line メソッドの単体テスト。"""
+
+    def setup_method(self) -> None:
+        self.parser = ResolutionParser()
+
+    def test_bare_sansei(self) -> None:
+        assert self.parser._is_non_title_line("賛成") is True
+
+    def test_bare_hantai(self) -> None:
+        assert self.parser._is_non_title_line("反対") is True
+
+    def test_bare_kiken(self) -> None:
+        assert self.parser._is_non_title_line("棄権") is True
+
+    def test_vote_count_with_unit(self) -> None:
+        assert self.parser._is_non_title_line("128,451個") is True
+
+    def test_vote_count_with_unit_fullwidth(self) -> None:
+        assert self.parser._is_non_title_line("２００，００３個") is True
+
+    def test_note_reference(self) -> None:
+        assert self.parser._is_non_title_line("（注）４") is True
+
+    def test_note_reference_halfwidth(self) -> None:
+        assert self.parser._is_non_title_line("(注)2・3") is True
+
+    def test_percentage(self) -> None:
+        assert self.parser._is_non_title_line("95.04") is True
+
+    def test_percentage_with_symbol(self) -> None:
+        assert self.parser._is_non_title_line("95.04％") is True
+
+    def test_pure_number(self) -> None:
+        assert self.parser._is_non_title_line("128,451") is True
+
+    def test_real_title_passes(self) -> None:
+        assert (
+            self.parser._is_non_title_line("剰余金の処分の件")
+            is False
+        )
+
+    def test_director_title_passes(self) -> None:
+        assert (
+            self.parser._is_non_title_line("取締役選任の件")
+            is False
+        )
+
+    def test_shareholder_title_passes(self) -> None:
+        assert (
+            self.parser._is_non_title_line(
+                "取締役佐藤英志氏解任の件"
+            )
+            is False
+        )

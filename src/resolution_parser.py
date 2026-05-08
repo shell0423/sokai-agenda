@@ -164,6 +164,16 @@ class ResolutionParser:
     # 議案行検出
     # ------------------------------------------------------------------
 
+    _HEADER_WORDS = frozenset({
+        "決議事項", "賛成（個）", "反対（個）",
+        "棄権（個）", "可決要件",
+        "決議の結果及び賛成割合（％）",
+        "決議の結果及び", "賛成割合（％）",
+        "賛成数", "反対数", "棄権数",
+        "(個)", "（個）",
+        "賛成割合(％)", "決議の結果及び賛成割合(％)",
+    })
+
     _PROPOSAL_RE = re.compile(
         r"第[０-９0-9]+号議案"
     )
@@ -266,14 +276,67 @@ class ResolutionParser:
         return line.strip() in ("－", "―", "-", "–", "—", "０", "0")
 
     def _is_vote_number(self, line: str) -> bool:
-        """票数行（数値 or ダッシュ）か判定する。"""
-        return self._is_number_line(line) or self._is_dash_line(line)
+        """票数行（数値 or ダッシュ or 数値+個）か判定する。"""
+        if self._is_number_line(line) or self._is_dash_line(line):
+            return True
+        # "128,451個" のような票数+単位行
+        cleaned = _zen_to_han(
+            line.replace(",", "").replace("，", "").strip()
+        )
+        if re.match(r"^\d+個$", cleaned):
+            return True
+        return False
 
     def _get_vote_number(self, line: str) -> int | None:
         """票数行から数値を取得する。ダッシュは0。"""
         if self._is_dash_line(line):
             return 0
         return _parse_number(line)
+
+    # ------------------------------------------------------------------
+    # タイトルとして不適切な行の判定
+    # ------------------------------------------------------------------
+
+    _BARE_VOTE_LABELS = frozenset(
+        {"賛成", "反対", "棄権", "賛成数", "反対数", "棄権数"}
+    )
+
+    def _is_non_title_line(self, line: str) -> bool:
+        """タイトルとして使用すべきでない行を検出する。
+
+        議決権の票数ラベル、票数+単位、注記参照、パーセント表記など
+        議案タイトルとしては明らかに不適切な行を True で返す。
+        """
+        stripped = line.strip()
+        if not stripped:
+            return True
+
+        # 裸の投票ラベル（"賛成", "反対", "棄権" 等）
+        if stripped in self._BARE_VOTE_LABELS:
+            return True
+
+        # 票数 + 単位「個」（"128,451個" "200,003個"）
+        cleaned = _zen_to_han(
+            stripped.replace(",", "").replace("，", "")
+            .replace(" ", "").replace("　", "")
+        )
+        if re.match(r"^\d+個$", cleaned):
+            return True
+
+        # 注記参照（"(注)1", "（注）４", "(注)2・3" 等）
+        if re.match(r"^[（\(]注[）\)]", stripped):
+            return True
+
+        # パーセント表記（"95.04%"）
+        han = _zen_to_han(stripped.replace("．", "."))
+        if re.match(r"^\d+\.\d+[％%]?$", han):
+            return True
+
+        # 純粋な数値行（カンマ含む）
+        if re.match(r"^[\d,，]+$", _zen_to_han(stripped)):
+            return True
+
+        return False
 
     # ------------------------------------------------------------------
     # 候補者名の判定
@@ -321,11 +384,7 @@ class ResolutionParser:
             return False
 
         # テーブルヘッダー行
-        if stripped in ("決議事項", "賛成（個）", "反対（個）",
-                        "棄権（個）", "可決要件",
-                        "決議の結果及び賛成割合（％）",
-                        "決議の結果及び",
-                        "賛成割合（％）"):
+        if stripped in self._HEADER_WORDS:
             return False
 
         # 数字（全角・半角）を含む行は候補者名ではない
@@ -380,24 +439,13 @@ class ResolutionParser:
         current_type = ProposalType.COMPANY
         i = 0
 
-        # テーブルヘッダーをスキップ
-        header_words = {
-            "決議事項", "賛成（個）", "反対（個）",
-            "棄権（個）", "可決要件",
-            "決議の結果及び賛成割合（％）",
-            "決議の結果及び", "賛成割合（％）",
-            "賛成数", "反対数", "棄権数",
-            "(個)", "（個）",
-            "賛成割合(％)", "決議の結果及び賛成割合(％)",
-        }
-
         bare_proposal_num = 0  # 番号なし議案のカウンター
 
         while i < len(vote_lines):
             line = vote_lines[i]
 
             # テーブルヘッダー行はスキップ
-            if line in header_words:
+            if line in self._HEADER_WORDS:
                 i += 1
                 continue
 
@@ -436,14 +484,14 @@ class ResolutionParser:
                 i += 1
                 if not title and i < len(vote_lines):
                     next_line = vote_lines[i]
-                    # 次行がデータ行でなければタイトルとして取得
+                    # 次行がデータ行・投票ラベル等でなければ
+                    # タイトルとして取得
                     if (
-                        not self._is_vote_number(next_line)
+                        not self._is_non_title_line(next_line)
+                        and not self._is_vote_number(next_line)
                         and not self._is_candidate_name(next_line)
-                        and self._parse_result_line(next_line) is None
-                        and not re.match(
-                            r"^[（\(]注[）\)]", next_line
-                        )
+                        and self._parse_result_line(next_line)
+                        is None
                     ):
                         title = next_line
                         i += 1
@@ -507,22 +555,14 @@ class ResolutionParser:
         # タイトルが空の場合、次行からタイトルを取得する
         if not title and i < len(lines):
             next_line = lines[i]
-            # データ行・ヘッダー行でなければタイトルとして使用
+            # データ行・ヘッダー行・投票ラベル等でなければ
+            # タイトルとして使用
             if (
-                not self._is_vote_number(next_line)
+                not self._is_non_title_line(next_line)
+                and not self._is_vote_number(next_line)
                 and not self._is_candidate_name(next_line)
                 and self._parse_result_line(next_line) is None
-                and not re.match(
-                    r"^[（\(]注[）\)]", next_line
-                )
-                and next_line not in {
-                    "決議事項", "賛成（個）", "反対（個）",
-                    "棄権（個）", "可決要件",
-                    "決議の結果及び賛成割合（％）",
-                    "決議の結果及び", "賛成割合（％）",
-                    "賛成数", "反対数", "棄権数",
-                    "(個)", "（個）",
-                }
+                and next_line not in self._HEADER_WORDS
                 and "会社提案" not in next_line
                 and "株主提案" not in next_line
                 and self._match_proposal_line(next_line) is None
