@@ -325,55 +325,55 @@ def run(args: argparse.Namespace) -> None:
         else date(year, 8, 31)
     )
 
-    # クライアント初期化
-    edinet_client = EdinetClient(api_key=edinet_key)
-    resolution_parser = ResolutionParser()
+    # クライアント初期化（コンテキストマネージャでコネクション再利用）
+    with EdinetClient(api_key=edinet_key) as edinet_client:
+        resolution_parser = ResolutionParser()
 
-    # Step 1: 臨時報告書の取得とパース
-    meetings = _build_meeting_results(
-        edinet_client,
-        resolution_parser,
-        start_date,
-        end_date,
-        args.code,
-    )
+        # Step 1: 臨時報告書の取得とパース
+        meetings = _build_meeting_results(
+            edinet_client,
+            resolution_parser,
+            start_date,
+            end_date,
+            args.code,
+        )
 
-    if not meetings:
-        logger.info("該当する株主総会決議が見つかりませんでした")
-        return
+        if not meetings:
+            logger.info("該当する株主総会決議が見つかりませんでした")
+            return
 
-    # Step 2: JQuants企業マスタで情報補完（オプション）
-    jquants_key = os.getenv("JQUANTS_API_KEY", "")
-    if jquants_key:
-        try:
-            jquants = JQuantsClient(api_key=jquants_key)
-            master = jquants.get_stock_master()
-            for meeting in meetings:
-                code4 = meeting.sec_code[:4]
-                if code4 in master and not meeting.company_name:
-                    meeting.company_name = master[code4]["name"]
-        except Exception:
-            logger.warning(
-                "JQuants企業マスタ取得失敗（スキップ）",
-                exc_info=True,
-            )
-
-    # Step 3: 株主提案がある企業の大量保有報告書検索
-    holdings_map: dict[str, list] = {}
-    if not args.skip_holdings:
-        holding_searcher = HoldingSearcher(edinet_client)
-        # 検索範囲: 対象年の1月1日〜スキャン終了日
-        h_start = date(year, 1, 1)
-
-        for meeting in meetings:
-            if meeting.has_shareholder_proposals:
-                holders = holding_searcher.search_holders(
-                    edinet_code=meeting.edinet_code,
-                    search_start=h_start,
-                    search_end=end_date,
+        # Step 2: JQuants企業マスタで情報補完（オプション）
+        jquants_key = os.getenv("JQUANTS_API_KEY", "")
+        if jquants_key:
+            try:
+                jquants = JQuantsClient(api_key=jquants_key)
+                master = jquants.get_stock_master()
+                for meeting in meetings:
+                    code4 = meeting.sec_code[:4]
+                    if code4 in master and not meeting.company_name:
+                        meeting.company_name = master[code4]["name"]
+            except Exception:
+                logger.warning(
+                    "JQuants企業マスタ取得失敗（スキップ）",
+                    exc_info=True,
                 )
-                if holders:
-                    holdings_map[meeting.edinet_code] = holders
+
+        # Step 3: 株主提案がある企業の大量保有報告書検索
+        holdings_map: dict[str, list] = {}
+        if not args.skip_holdings:
+            holding_searcher = HoldingSearcher(edinet_client)
+            # 検索範囲: 対象年の1月1日〜スキャン終了日
+            h_start = date(year, 1, 1)
+
+            for meeting in meetings:
+                if meeting.has_shareholder_proposals:
+                    holders = holding_searcher.search_holders(
+                        edinet_code=meeting.edinet_code,
+                        search_start=h_start,
+                        search_end=end_date,
+                    )
+                    if holders:
+                        holdings_map[meeting.edinet_code] = holders
 
     # Step 4: フラットなレコードに変換
     records = _flatten_to_records(meetings, holdings_map)
@@ -447,39 +447,39 @@ def run_trend(args: argparse.Namespace) -> None:
 
     logger.info("トレンド比較: %s", " vs ".join(str(y) for y in years))
 
-    edinet_client = EdinetClient(api_key=edinet_key)
     resolution_parser = ResolutionParser()
     cache_dir = Path("output/cache")
 
     # 各年のデータを取得（キャッシュ利用）
     year_data: dict[int, list[MeetingResult]] = {}
-    for year in years:
-        cached = None
-        if not args.no_cache:
-            cached = load_year_data(year, cache_dir)
+    with EdinetClient(api_key=edinet_key) as edinet_client:
+        for year in years:
+            cached = None
+            if not args.no_cache:
+                cached = load_year_data(year, cache_dir)
 
-        if cached is not None:
-            year_data[year] = cached
-        else:
-            start = (
-                date.fromisoformat(args.start_date)
-                if args.start_date
-                else date(year, 5, 1)
-            )
-            end = (
-                date.fromisoformat(args.end_date)
-                if args.end_date
-                else date(year, 8, 31)
-            )
-            meetings = _build_meeting_results(
-                edinet_client,
-                resolution_parser,
-                start,
-                end,
-                args.code,
-            )
-            year_data[year] = meetings
-            save_year_data(year, meetings, cache_dir)
+            if cached is not None:
+                year_data[year] = cached
+            else:
+                start = (
+                    date.fromisoformat(args.start_date)
+                    if args.start_date
+                    else date(year, 5, 1)
+                )
+                end = (
+                    date.fromisoformat(args.end_date)
+                    if args.end_date
+                    else date(year, 8, 31)
+                )
+                meetings = _build_meeting_results(
+                    edinet_client,
+                    resolution_parser,
+                    start,
+                    end,
+                    args.code,
+                )
+                year_data[year] = meetings
+                save_year_data(year, meetings, cache_dir)
 
     # 分析
     analyzer = TrendAnalyzer(threshold=args.threshold)
