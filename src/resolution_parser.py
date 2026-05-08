@@ -222,7 +222,7 @@ class ResolutionParser:
 
     def _parse_result_line(
         self, line: str
-    ) -> tuple[VoteResult, float] | None:
+    ) -> tuple[VoteResult, float | None] | None:
         """結果行（"可決　95.04" "可決（97.73％）"等）をパースする。"""
         m = self._RESULT_RE.match(line)
         if m:
@@ -237,7 +237,7 @@ class ResolutionParser:
             try:
                 rate = float(rate_str)
             except ValueError:
-                rate = 0.0
+                rate = None
             return result, rate
         return None
 
@@ -716,7 +716,7 @@ class ResolutionParser:
                     pending_rate = br
                     i += 1
                 elif self._is_bare_result(line) is not None:
-                    r = pending_rate if pending_rate else 0.0
+                    r = pending_rate
                     result_val = (
                         VoteResult.APPROVED
                         if line.strip() == "可決"

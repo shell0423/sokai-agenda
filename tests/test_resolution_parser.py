@@ -643,3 +643,58 @@ class TestIsNonTitleLine:
             )
             is False
         )
+
+
+class TestParseResultLineRate:
+    """_parse_result_line の賛成率 None 修正テスト。"""
+
+    def setup_method(self) -> None:
+        self.parser = ResolutionParser()
+
+    def test_normal_result(self) -> None:
+        """通常の結果行。"""
+        res = self.parser._parse_result_line("可決（95.04％）")
+        assert res is not None
+        assert res[0] == VoteResult.APPROVED
+        assert res[1] == 95.04
+
+    def test_rejected_result(self) -> None:
+        """否決の結果行。"""
+        res = self.parser._parse_result_line("否決（30.50）")
+        assert res is not None
+        assert res[0] == VoteResult.REJECTED
+        assert res[1] == 30.50
+
+    def test_no_match(self) -> None:
+        """結果行でない行。"""
+        assert self.parser._parse_result_line("佐藤 英志") is None
+
+
+class TestGroupedCandidateRate:
+    """グループ型候補者の率が None になるケースのテスト。"""
+
+    def setup_method(self) -> None:
+        self.parser = ResolutionParser()
+
+    def test_bare_result_without_rate(self) -> None:
+        """率なしの「可決」行 → approval_rate は票数から計算。"""
+        # グループ型: 名前2人 → 票数 → 可決（率なし）
+        block = [
+            "山田 太郎",
+            "鈴木 花子",
+            "39296",  # 山田 賛成
+            "39278",  # 鈴木 賛成
+            "293",    # 山田 反対
+            "311",    # 鈴木 反対
+            "10",     # 山田 棄権
+            "15",     # 鈴木 棄権
+            "可決",   # 率なし
+            "可決",   # 率なし
+        ]
+        candidates = self.parser._parse_grouped_candidates(
+            block, 0, ["山田 太郎", "鈴木 花子"]
+        )
+        assert len(candidates) == 2
+        # 率が None（0.0 ではない）→ _calc_approval_rate で補完
+        assert candidates[0].approval_rate is None
+        assert candidates[1].approval_rate is None
