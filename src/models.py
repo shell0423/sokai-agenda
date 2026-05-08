@@ -69,6 +69,9 @@ class MeetingResult:
 
         候補者付き議案（取締役選任等）の場合、いずれかの候補者が
         賛成率50%未満なら否決とみなす。
+
+        ただし approval_rate == 0.0 かつ votes_for > 0 の場合は
+        パーサーバグ（率未抽出のフォールバック値）として無視する。
         """
         for p in self.proposals:
             if p.proposal_type != ProposalType.COMPANY:
@@ -77,10 +80,14 @@ class MeetingResult:
                 return True
             # 候補者付き: 賛成率50%未満の候補者がいれば否決扱い
             for c in p.candidates:
-                if (
-                    c.approval_rate is not None
-                    and c.approval_rate < 50.0
+                if c.approval_rate is None:
+                    continue
+                # 0.0% で賛成票があるのはパーサーバグ → 無視
+                if c.approval_rate == 0.0 and (
+                    c.votes_for is None or c.votes_for > 0
                 ):
+                    continue
+                if c.approval_rate < 50.0:
                     return True
         return False
 

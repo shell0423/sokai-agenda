@@ -369,3 +369,88 @@ class TestMeetingResultRejected:
         """太陽HD 2025年は佐藤英志が否決。"""
         meeting = _taiyo_2025()
         assert meeting.has_rejected_company_proposals is True
+
+    def test_zero_rate_with_votes_for_ignored(self) -> None:
+        """approval_rate=0.0でvotes_for>0はパーサーバグとして無視。"""
+        meeting = MeetingResult(
+            doc_id="TEST",
+            edinet_code="E00001",
+            sec_code="99990",
+            company_name="テスト社",
+            submit_date="2025-06-01",
+            proposals=[
+                Proposal(
+                    number=1,
+                    title="取締役選任の件",
+                    proposal_type=ProposalType.COMPANY,
+                    candidates=[
+                        Candidate(
+                            name="井上 善行",
+                            approval_rate=0.0,
+                            votes_for=39296,
+                            votes_against=293,
+                        ),
+                        Candidate(
+                            name="井上 純子",
+                            approval_rate=99.21,
+                            votes_for=39278,
+                            votes_against=311,
+                        ),
+                    ],
+                ),
+            ],
+        )
+        # 0.0%はバグなので否決とみなさない
+        assert meeting.has_rejected_company_proposals is False
+
+    def test_zero_rate_no_votes_ignored(self) -> None:
+        """approval_rate=0.0でvotes_for=Noneも無視。"""
+        meeting = MeetingResult(
+            doc_id="TEST",
+            edinet_code="E00001",
+            sec_code="99990",
+            company_name="テスト社",
+            submit_date="2025-06-01",
+            proposals=[
+                Proposal(
+                    number=1,
+                    title="取締役選任の件",
+                    proposal_type=ProposalType.COMPANY,
+                    candidates=[
+                        Candidate(
+                            name="田中 太郎",
+                            approval_rate=0.0,
+                            votes_for=None,
+                            votes_against=None,
+                        ),
+                    ],
+                ),
+            ],
+        )
+        assert meeting.has_rejected_company_proposals is False
+
+    def test_real_zero_votes_is_rejected(self) -> None:
+        """votes_for=0の本当の0票は否決。"""
+        meeting = MeetingResult(
+            doc_id="TEST",
+            edinet_code="E00001",
+            sec_code="99990",
+            company_name="テスト社",
+            submit_date="2025-06-01",
+            proposals=[
+                Proposal(
+                    number=1,
+                    title="取締役選任の件",
+                    proposal_type=ProposalType.COMPANY,
+                    candidates=[
+                        Candidate(
+                            name="田中 太郎",
+                            approval_rate=0.0,
+                            votes_for=0,
+                            votes_against=100,
+                        ),
+                    ],
+                ),
+            ],
+        )
+        assert meeting.has_rejected_company_proposals is True
