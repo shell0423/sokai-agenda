@@ -24,11 +24,12 @@ Step 1: 全企業トレンド分析（約2,300社）
   │
   │  → trend_YYYY_YYYY.csv
   │
-  ▼ スクリーニング条件
-Step 2: 注目企業の抽出（数十社）
-  │  条件A: 会社提案の賛成率が5pp以上低下（DECLINING）
+  ▼ スクリーニング条件（自動）
+Step 2: 注目企業の抽出 → 大量保有報告書の自動検索
+  │  条件A: 会社提案の賛成率が10pp以上低下（--holding-threshold）
   │  条件B: 新たに株主提案が提出された（NEW_SHAREHOLDER）
-  │  → 「両方」該当 or 「新規株主提案のみ」で注目企業をリストアップ
+  │  条件C: 会社提案が否決された（候補者の賛成率50%未満を含む）
+  │  → 該当企業のEDINET大量保有報告書を自動検索
   │
   │  → activist_analysis.csv（手動詳細分析）
   │
@@ -96,6 +97,9 @@ python -m src.main --trend --years 2024,2025
 # 閾値を変更（3pp以上の低下をフラグ）
 python -m src.main --trend --years 2024,2025 --threshold -3.0
 
+# 大量保有検索トリガーの閾値を変更（15pp以上の低下で検索）
+python -m src.main --trend --years 2024,2025 --holding-threshold -15.0
+
 # キャッシュ無視で再取得
 python -m src.main --trend --years 2024,2025 --no-cache
 ```
@@ -115,6 +119,7 @@ python -m src.main --trend --years 2024,2025 --no-cache
 | `--trend` | トレンド比較モード | false |
 | `--years` | 比較年度（カンマ区切り） | 前年,今年 |
 | `--threshold` | 賛成率低下アラート閾値（pp） | -5.0 |
+| `--holding-threshold` | 大量保有検索トリガーの賛成率低下閾値（pp） | -10.0 |
 | `--no-cache` | キャッシュ無視 | false |
 | `--verbose` | デバッグログ | false |
 
@@ -236,7 +241,6 @@ python fetch_holdings.py
 ## 今後の予定
 
 - [ ] 2023〜2025年の3期分トレンド比較（ゆうとさん要望の第2段階）
-- [ ] 会社提案が否決された場合にも大量保有報告書を自動検索するロジック追加
 - [ ] セクション(2)からの議案タイトル抽出（空タイトル対策）
 - [ ] EDINET APIリトライ機構の追加
 - [ ] activist_holdings_timeline.csv の自動更新スクリプト化
