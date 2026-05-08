@@ -63,6 +63,27 @@ class MeetingResult:
             for p in self.proposals
         )
 
+    @property
+    def has_rejected_company_proposals(self) -> bool:
+        """会社提案が否決された議案があるかどうか。
+
+        候補者付き議案（取締役選任等）の場合、いずれかの候補者が
+        賛成率50%未満なら否決とみなす。
+        """
+        for p in self.proposals:
+            if p.proposal_type != ProposalType.COMPANY:
+                continue
+            if p.result == VoteResult.REJECTED:
+                return True
+            # 候補者付き: 賛成率50%未満の候補者がいれば否決扱い
+            for c in p.candidates:
+                if (
+                    c.approval_rate is not None
+                    and c.approval_rate < 50.0
+                ):
+                    return True
+        return False
+
 
 @dataclass
 class HoldingContext:
@@ -108,6 +129,37 @@ class TrendReport:
         default_factory=list
     )
     all_trends: list[ApprovalTrend] = field(default_factory=list)
+
+    def get_alert_sec_codes(
+        self, holding_threshold: float = -10.0
+    ) -> set[str]:
+        """大量保有報告書を検索すべきアラート企業のsec_codeを返す。
+
+        以下のいずれかに該当する企業:
+        - 会社提案の賛成率が holding_threshold 以上低下（DECLINING）
+        - 新規株主提案あり（NEW_SHAREHOLDER）
+
+        Args:
+            holding_threshold: 賛成率低下の閾値（pp）。デフォルト-10.0。
+
+        Returns:
+            アラート企業の4桁証券コードのセット。
+        """
+        codes: set[str] = set()
+
+        # 条件A: 会社提案の賛成率が大幅低下
+        for t in self.declining_proposals:
+            if (
+                t.proposal_type == "会社提案"
+                and t.delta <= holding_threshold
+            ):
+                codes.add(t.sec_code)
+
+        # 条件B: 新規株主提案
+        for ns in self.new_shareholder_proposals:
+            codes.add(ns.sec_code)
+
+        return codes
 
 
 @dataclass

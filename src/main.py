@@ -13,7 +13,7 @@ from src.csv_exporter import CsvExporter
 from src.edinet_client import EXTRAORDINARY_REPORT_CODE, EdinetClient
 from src.holding_searcher import HoldingSearcher
 from src.jquants_client import JQuantsClient
-from src.models import AnalysisRecord, MeetingResult
+from src.models import AnalysisRecord, MeetingResult, TrendReport
 from src.resolution_parser import ResolutionParser
 from src.trend_analyzer import TrendAnalyzer
 from src.trend_cache import load_year_data, save_year_data
@@ -100,6 +100,15 @@ def parse_args() -> argparse.Namespace:
         "--no-cache",
         action="store_true",
         help="キャッシュを無視してEDINETから再取得",
+    )
+    parser.add_argument(
+        "--holding-threshold",
+        type=float,
+        default=-10.0,
+        help=(
+            "大量保有報告書検索トリガーの賛成率低下閾値（pp、"
+            "デフォルト: -10.0）"
+        ),
     )
     return parser.parse_args()
 
@@ -429,6 +438,89 @@ def _print_results(records: list[AnalysisRecord]) -> None:
             print(holder_str)
 
 
+def _search_alert_holdings(
+    edinet_client: EdinetClient,
+    report: TrendReport,
+    year_data: dict[int, list[MeetingResult]],
+    years: list[int],
+    holding_threshold: float = -10.0,
+    skip: bool = False,
+) -> dict[str, list]:
+    """アラート企業の大量保有報告書を検索する。
+
+    以下の条件に該当する企業を検索対象とする:
+    - 会社提案の賛成率が holding_threshold 以上低下
+    - 新規株主提案あり
+    - 会社提案が否決された
+
+    Args:
+        edinet_client: EDINETクライアント。
+        report: トレンド分析レポート。
+        year_data: 年度→MeetingResultリストの辞書。
+        years: 比較対象年度リスト。
+        holding_threshold: 賛成率低下トリガーの閾値（pp）。
+        skip: Trueなら検索をスキップ。
+
+    Returns:
+        edinet_code → HoldingContextリストのマッピング。
+    """
+    if skip:
+        return {}
+
+    # sec_code → edinet_code の逆引きマップ
+    code_map: dict[str, tuple[str, str]] = {}
+    for meetings in year_data.values():
+        for m in meetings:
+            code4 = m.sec_code[:4]
+            if code4 not in code_map:
+                code_map[code4] = (m.edinet_code, m.company_name)
+
+    # アラート企業の収集
+    alert_codes: set[str] = set()
+
+    # 条件A: トレンドレポートから（賛成率低下 + 新規株主提案）
+    alert_codes |= report.get_alert_sec_codes(holding_threshold)
+
+    # 条件B: 最新年で会社提案が否決された企業
+    latest_year = max(years)
+    for m in year_data.get(latest_year, []):
+        if m.has_rejected_company_proposals:
+            alert_codes.add(m.sec_code[:4])
+
+    if not alert_codes:
+        return {}
+
+    logger.info(
+        "大量保有検索対象: %d社 (%s)",
+        len(alert_codes),
+        ", ".join(sorted(alert_codes)),
+    )
+
+    # 大量保有報告書の検索
+    holding_searcher = HoldingSearcher(edinet_client)
+    h_start = date(latest_year, 1, 1)
+    h_end = date(latest_year, 8, 31)
+
+    holdings_map: dict[str, list] = {}
+    for code4 in sorted(alert_codes):
+        mapping = code_map.get(code4)
+        if not mapping:
+            continue
+        edinet_code, company_name = mapping
+        logger.info(
+            "検索中: %s %s (%s)", code4, company_name, edinet_code
+        )
+        holders = holding_searcher.search_holders(
+            edinet_code=edinet_code,
+            search_start=h_start,
+            search_end=h_end,
+        )
+        if holders:
+            holdings_map[edinet_code] = holders
+
+    return holdings_map
+
+
 def run_trend(args: argparse.Namespace) -> None:
     """トレンド比較モードの処理。"""
     load_dotenv()
@@ -450,7 +542,7 @@ def run_trend(args: argparse.Namespace) -> None:
     resolution_parser = ResolutionParser()
     cache_dir = Path("output/cache")
 
-    # 各年のデータを取得（キャッシュ利用）
+    # 各年のデータを取得（キャッシュ利用）+ 大量保有検索
     year_data: dict[int, list[MeetingResult]] = {}
     with EdinetClient(api_key=edinet_key) as edinet_client:
         for year in years:
@@ -481,12 +573,22 @@ def run_trend(args: argparse.Namespace) -> None:
                 year_data[year] = meetings
                 save_year_data(year, meetings, cache_dir)
 
-    # 分析
-    analyzer = TrendAnalyzer(threshold=args.threshold)
-    report = analyzer.analyze(year_data)
+        # 分析
+        analyzer = TrendAnalyzer(threshold=args.threshold)
+        report = analyzer.analyze(year_data)
+
+        # アラート企業の大量保有報告書を検索
+        holdings_map = _search_alert_holdings(
+            edinet_client,
+            report,
+            year_data,
+            years,
+            holding_threshold=args.holding_threshold,
+            skip=args.skip_holdings,
+        )
 
     # 出力
-    print_trend_report(report)
+    print_trend_report(report, holdings_map)
 
     if not args.dry_run and args.format == "csv":
         output_path = Path(
@@ -497,10 +599,12 @@ def run_trend(args: argparse.Namespace) -> None:
 
     logger.info(
         "トレンド分析完了: %d件のトレンド, "
-        "%d件の低下アラート, %d社の新規株主提案",
+        "%d件の低下アラート, %d社の新規株主提案, "
+        "%d社の大量保有検索",
         len(report.all_trends),
         len(report.declining_proposals),
         len(report.new_shareholder_proposals),
+        len(holdings_map),
     )
 
 
