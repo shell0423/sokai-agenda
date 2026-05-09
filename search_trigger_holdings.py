@@ -429,6 +429,15 @@ def parse_args() -> argparse.Namespace:
         help="スキャンキャッシュを無視",
     )
     parser.add_argument(
+        "--years",
+        type=str,
+        default=None,
+        help=(
+            "比較年度（カンマ区切り、デフォルト: 前年,今年）"
+            " 例: --years 2024,2025,2026"
+        ),
+    )
+    parser.add_argument(
         "--holding-threshold",
         type=float,
         default=-10.0,
@@ -458,10 +467,16 @@ def main() -> None:
         print("エラー: EDINET_API_KEY が設定されていません")
         sys.exit(1)
 
+    # 年度の決定
+    from compare_triggers import _resolve_years
+
+    years = _resolve_years(args.years)
+
     # Step 1: トリガー分析（キャッシュ済みデータ使用、API不要）
-    print("Step 1: トリガー分析...")
+    years_str = ",".join(str(y) for y in years)
+    print(f"Step 1: トリガー分析（{years_str}）...")
     triggers, stats = analyze_triggers(
-        years=[2024, 2025],
+        years=years,
         holding_threshold=args.holding_threshold,
     )
 
@@ -479,7 +494,7 @@ def main() -> None:
     from src.trend_cache import load_year_data
 
     year_data = {}
-    for y in [2024, 2025]:
+    for y in years:
         data = load_year_data(y, Path("output/cache"))
         if data:
             year_data[y] = data

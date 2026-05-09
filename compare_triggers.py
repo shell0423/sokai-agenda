@@ -4,7 +4,8 @@
 どの企業が新たに検索対象に加わるかを表示する。
 
 使い方:
-    python compare_triggers.py              # コンソール表示のみ
+    python compare_triggers.py              # コンソール表示のみ（前年 vs 今年）
+    python compare_triggers.py --years 2024,2025,2026  # 3年比較
     python compare_triggers.py --csv        # CSV出力（output/trigger_comparison.csv）
     python compare_triggers.py --csv -o out.csv  # 出力先を指定
 
@@ -209,6 +210,10 @@ def analyze_triggers(
             )
         )
 
+    year_counts = {
+        y: len(year_data[y]) for y in years
+    }
+
     stats = {
         "total_old": len(old_codes),
         "total_new": len(new_codes),
@@ -218,8 +223,7 @@ def analyze_triggers(
         "added": len(new_codes - old_codes),
         "common": len(old_codes & new_codes),
         "removed": len(old_codes - new_codes),
-        "year_0_count": len(year_data[years[0]]),
-        "year_1_count": len(year_data[years[1]]),
+        "year_counts": year_counts,
     }
 
     return triggers, stats
@@ -273,19 +277,21 @@ def export_csv(
 
 def print_report(
     triggers: list[CompanyTrigger],
-    stats: dict[str, int],
+    stats: dict,
     years: list[int],
     holding_threshold: float,
 ) -> None:
     """コンソールにレポートを表示する。"""
-    print(
-        f"読み込み: {years[0]}年={stats['year_0_count']}社, "
-        f"{years[1]}年={stats['year_1_count']}社"
+    year_counts: dict[int, int] = stats.get("year_counts", {})
+    counts_str = ", ".join(
+        f"{y}年={year_counts.get(y, 0)}社" for y in years
     )
+    print(f"読み込み: {counts_str}")
 
     print(f"\n{'='*70}")
     print("  大量保有検索トリガー比較")
-    print(f"  比較年度: {years[0]} → {years[1]}")
+    years_str = " → ".join(str(y) for y in years)
+    print(f"  比較年度: {years_str}")
     print(f"  賛成率低下閾値: {holding_threshold}pp")
     print(f"{'='*70}")
 
@@ -371,10 +377,28 @@ def print_report(
 # エントリーポイント
 # ------------------------------------------------------------------
 
+def _resolve_years(years_str: str | None) -> list[int]:
+    """年度文字列をパースする。Noneなら[前年, 今年]を返す。"""
+    if years_str:
+        return sorted(int(y.strip()) for y in years_str.split(","))
+    from datetime import date
+    current = date.today().year
+    return [current - 1, current]
+
+
 def parse_args() -> argparse.Namespace:
     """コマンドライン引数をパースする。"""
     parser = argparse.ArgumentParser(
         description="大量保有検索トリガーの旧→新ロジック比較"
+    )
+    parser.add_argument(
+        "--years",
+        type=str,
+        default=None,
+        help=(
+            "比較年度（カンマ区切り、デフォルト: 前年,今年）"
+            " 例: --years 2024,2025,2026"
+        ),
     )
     parser.add_argument(
         "--csv",
@@ -398,7 +422,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    years = [2024, 2025]
+    years = _resolve_years(args.years)
 
     triggers, stats = analyze_triggers(
         years=years,

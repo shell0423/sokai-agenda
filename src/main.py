@@ -4,7 +4,7 @@ import argparse
 import logging
 import os
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -108,6 +108,24 @@ def parse_args() -> argparse.Namespace:
         help=(
             "大量保有報告書検索トリガーの賛成率低下閾値（pp、"
             "デフォルト: -10.0）"
+        ),
+    )
+    parser.add_argument(
+        "--scan-start-month",
+        type=int,
+        default=5,
+        help=(
+            "スキャン開始月（デフォルト: 5）。"
+            "3月決算=5, 12月決算=2, 6月決算=8"
+        ),
+    )
+    parser.add_argument(
+        "--scan-end-month",
+        type=int,
+        default=8,
+        help=(
+            "スキャン終了月（デフォルト: 8）。"
+            "3月決算=8, 12月決算=5, 6月決算=11"
         ),
     )
     return parser.parse_args()
@@ -326,13 +344,19 @@ def run(args: argparse.Namespace) -> None:
     start_date = (
         date.fromisoformat(args.start_date)
         if args.start_date
-        else date(year, 5, 1)
+        else date(year, args.scan_start_month, 1)
     )
-    end_date = (
-        date.fromisoformat(args.end_date)
-        if args.end_date
-        else date(year, 8, 31)
-    )
+    if args.end_date:
+        end_date = date.fromisoformat(args.end_date)
+    else:
+        end_month = args.scan_end_month
+        # 月末日を算出
+        if end_month == 12:
+            end_date = date(year, 12, 31)
+        else:
+            end_date = date(year, end_month + 1, 1) - timedelta(
+                days=1
+            )
 
     # クライアント初期化（コンテキストマネージャでコネクション再利用）
     with EdinetClient(api_key=edinet_key) as edinet_client:
@@ -496,10 +520,10 @@ def _search_alert_holdings(
         ", ".join(sorted(alert_codes)),
     )
 
-    # 大量保有報告書の検索
+    # 大量保有報告書の検索（最古年の開始〜今日まで）
     holding_searcher = HoldingSearcher(edinet_client)
-    h_start = date(latest_year, 1, 1)
-    h_end = date(latest_year, 8, 31)
+    h_start = date(min(years), 1, 1)
+    h_end = date.today()
 
     holdings_map: dict[str, list] = {}
     for code4 in sorted(alert_codes):
@@ -556,13 +580,18 @@ def run_trend(args: argparse.Namespace) -> None:
                 start = (
                     date.fromisoformat(args.start_date)
                     if args.start_date
-                    else date(year, 5, 1)
+                    else date(year, args.scan_start_month, 1)
                 )
-                end = (
-                    date.fromisoformat(args.end_date)
-                    if args.end_date
-                    else date(year, 8, 31)
-                )
+                if args.end_date:
+                    end = date.fromisoformat(args.end_date)
+                else:
+                    em = args.scan_end_month
+                    if em == 12:
+                        end = date(year, 12, 31)
+                    else:
+                        end = date(
+                            year, em + 1, 1
+                        ) - timedelta(days=1)
                 meetings = _build_meeting_results(
                     edinet_client,
                     resolution_parser,
