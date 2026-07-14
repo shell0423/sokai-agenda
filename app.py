@@ -263,7 +263,25 @@ with st.sidebar:
 
 derived = load_derived()
 
-st.title("株主総会 アクティビスト実戦リスト 2026")
+_htitle, _hbtn = st.columns([4, 1])
+_htitle.title("株主総会 アクティビスト実戦リスト 2026")
+with _hbtn:
+    st.write("")  # タイトルとボタンの縦位置合わせ
+    if st.button("🔄 更新", width="stretch",
+                 help="ローカルデータからリストを作り直します(数秒〜1分)。"
+                      "EDINETから新しいデータを取り直すには、サイドバーの"
+                      "「🔄 フル更新」を使ってください。"):
+        ok = False
+        with st.spinner("更新中…(トリガー比較→差分→実戦リスト)"):
+            try:
+                jobs.fast_regen()
+                st.cache_data.clear()
+                ok = True
+            except Exception as e:  # noqa: BLE001
+                st.error(f"更新に失敗しました: {e}")
+        if ok:
+            st.toast("✅ 最新の状態に更新しました", icon="🔄")
+            st.rerun()
 
 if derived is None:
     st.warning("派生データが未生成です。サイドバーの「⚡ 再生成を実行」を押してください。")
