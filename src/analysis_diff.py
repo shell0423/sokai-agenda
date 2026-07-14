@@ -3,7 +3,7 @@
 trigger_comparison_2425.csv / _2526.csv / trigger_holdings.csv を入力に、
 - 継続・新規・卒業の集合
 - 著名アクティビストのホワイトリスト判定
-- 実戦ウォッチリスト(Tier A/B/C、撤退・パッシブ・極小を除外)
+- 実戦ウォッチリスト(Tier 1/2/3、撤退・パッシブ・極小を除外)
 を計算し、output/derived/ に永続化する。
 
 data/notes_2026.json の corrections(誤検出補正)と thesis(銘柄メモ)を反映する。
@@ -160,17 +160,32 @@ def load_notes() -> dict:
     return {"corrections": {}, "thesis": {}, "caveats": []}
 
 
+def _count_meetings(year: int) -> int | None:
+    """指定年の総会キャッシュ(全社)の社数。無ければNone。"""
+    path = OUTPUT_DIR / "cache" / f"{year}_meetings.json"
+    if not path.exists():
+        return None
+    try:
+        return len(json.loads(path.read_text(encoding="utf-8")))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
 def _profile(v: dict) -> str:
     return "".join(k for k in "ABC" if v[k]) or "-"
 
 
 def _tier(ratio: float, delta: float, rejected: bool, seg: str) -> str:
+    """実戦リストの優先度 Tier を返す(1=最優先, 2=要注目, 3=ウォッチ)。
+
+    ※トリガー条件A/B/Cとは別物。混同を避けるためTierは数字にしている。
+    """
     strong_build = delta >= 4
     if ratio >= 10 and (rejected or strong_build or seg == "継続"):
-        return "A"
+        return "1"
     if ratio >= 5 and (rejected or delta >= 2 or seg == "継続"):
-        return "B"
-    return "C"
+        return "2"
+    return "3"
 
 
 def build_all(
@@ -246,8 +261,20 @@ def build_all(
             r["tier"] = _tier(ratio, delta, r["C"], r["seg"])
             kept.append(r)
 
-    order = {"A": 0, "B": 1, "C": 2}
+    order = {"1": 0, "2": 1, "3": 2}
     kept.sort(key=lambda r: (order[r["tier"]], -(r["ratio"] or 0)))
+
+    # スクリーニングの流れ(漏斗)の各段の社数。使い方タブで表示する。
+    funnel = {
+        "meetings": _count_meetings(2026),          # ① 総会データを取得した全社
+        "condA": sum(1 for c in s_curr if t_curr[c]["A"]),
+        "condB": sum(1 for c in s_curr if t_curr[c]["B"]),
+        "condC": sum(1 for c in s_curr if t_curr[c]["C"]),
+        "trigger": len(s_curr),                     # ② 3条件トリガー(和集合)
+        "activist_pool": len(kept) + len(excluded), # ③ アクティビストが筆頭の社
+        "excluded": len(excluded),                  # 除外(パッシブ/縮小/極小/撤退)
+        "kept": len(kept),                          # ④ 実戦リスト
+    }
 
     result = {
         "sets": {"cont": cont, "new": new, "grad": grad},
@@ -255,10 +282,12 @@ def build_all(
             "prev_total": len(s_prev), "curr_total": len(s_curr),
             "cont": len(cont), "new": len(new), "grad": len(grad),
             "kept": len(kept), "excluded": len(excluded),
-            "A": sum(1 for r in kept if r["tier"] == "A"),
-            "B": sum(1 for r in kept if r["tier"] == "B"),
-            "C": sum(1 for r in kept if r["tier"] == "C"),
+            # Tier別社数(1=最優先, 2=要注目, 3=ウォッチ)
+            "t1": sum(1 for r in kept if r["tier"] == "1"),
+            "t2": sum(1 for r in kept if r["tier"] == "2"),
+            "t3": sum(1 for r in kept if r["tier"] == "3"),
         },
+        "funnel": funnel,
         "watchlist": kept,
         "excluded": excluded,
         "grad_names": {c: t_prev[c]["name"] for c in grad},
@@ -302,4 +331,4 @@ if __name__ == "__main__":
     res = build_all()
     c = res["counts"]
     print(f"継続{c['cont']} 新規{c['new']} 卒業{c['grad']} / "
-          f"実戦{c['kept']}社(A{c['A']}/B{c['B']}/C{c['C']}) 除外{c['excluded']}")
+          f"実戦{c['kept']}社(T1:{c['t1']}/T2:{c['t2']}/T3:{c['t3']}) 除外{c['excluded']}")
