@@ -27,8 +27,8 @@
 
 - Python 3.11+
 - EDINET API（臨時報告書・大量保有報告書）
-- J-Quants API（企業マスタ補完）
-- httpx / pandas / openpyxl / streamlit
+- warehouse（`~/Claude/warehouse` の `wh_security`）＝会社マスタ・社名補完（read_only）
+- httpx / duckdb / pandas / openpyxl / streamlit
 
 ## 分析フロー（3段階の漏斗型）
 
@@ -87,7 +87,10 @@ cp .env.example .env
 | 変数 | 用途 | 取得先 |
 |------|------|--------|
 | `EDINET_API_KEY` | EDINET API（必須） | https://disclosure.edinet-fsa.go.jp/ |
-| `JQUANTS_API_KEY` | J-Quants API（任意） | https://jpx-jquants.com/ |
+| `WAREHOUSE_DIR` | 会社マスタ(wh_security)の場所（任意・既定 `~/Claude/warehouse`） | ローカル |
+
+> 会社名補完は warehouse の `wh_security`（read_only）を参照します。倉庫が無くても
+> EDINETの提出者名で動作します（社名補完のみスキップ）。J-Quants は使いません。
 
 ## 使い方
 
@@ -170,7 +173,7 @@ python fetch_holdings.py
 │   ├── proposal_classifier.py  # 議案の分類（取締役選任/剰余金処分/その他）
 │   ├── holding_searcher.py     # 大量保有報告書の検索
 │   ├── xbrl_parser.py          # XBRL汎用パーサー
-│   ├── jquants_client.py       # J-Quants API クライアント
+│   ├── warehouse_client.py     # 会社マスタ(wh_security)を read_only 参照
 │   ├── trend_analyzer.py       # 年度間トレンド分析
 │   ├── trend_cache.py          # トレンドデータのキャッシュ（JSON）
 │   ├── trend_exporter.py       # トレンドレポートの出力
@@ -280,7 +283,7 @@ python fetch_holdings.py
 |--------|--------|------|
 | 臨時報告書（議決結果） | EDINET API | docTypeCode: 臨時報告書 |
 | 大量保有報告書 | EDINET API / IRBANK | 5%ルール開示 |
-| 企業マスタ | J-Quants API | 任意（企業名補完用） |
+| 企業マスタ | warehouse `wh_security` | 任意（社名補完用・read_only） |
 | 株主総会一覧 | JPX | 参照用（APIアクセス不可） |
 
 ### 参考URL

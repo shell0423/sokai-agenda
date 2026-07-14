@@ -43,6 +43,14 @@
 
 - 分析パイプライン: `src/main.py`(取得) → `compare_triggers.py`(3条件) → `search_trigger_holdings.py`(大量保有) → `src/analysis_diff.py`(差分/実戦リスト) → `src/dashboard_gen.py`(HTML)
 - アプリ: `app.py` + `src/app_data.py`(ローダー) + `src/jobs.py`(ボタンジョブ)
+- **会社マスタ= warehouse `wh_security`**（`src/warehouse_client.py`・read_only・**J-Quantsは廃止**）。
+  倉庫の作法どおり「開いて即クローズ」で夜間ライターをブロックしない。倉庫が無ければ社名補完のみスキップ。
+  ※データの本体（議決権結果・大量保有）は引き続きアプリの `output/` に持つ（倉庫に無い/季節データのため。統一の方針判断は下記）。
 - 検証済みの事実データ: `data/graduations_2026.json`(卒業9社の決着理由) / `data/notes_2026.json`(補正・銘柄メモ)
 - 派生データ: `output/derived/diff_watchlist.json`（高速再生成で更新）
 - 昨年分析: output/trigger_analysis_2025.md（2024→2025）
+
+## warehouse統一の方針（2026-07-15 判断）
+- **①会社マスタ→ wh_security：実施済み**（J-Quants依存を撤去）。
+- **②議決権結果・大量保有タイムライン：アプリ側に据え置き**（倉庫に無い・年1回の季節データ・高品質要求。倉庫の日次パイプラインに載せる価値薄）。
+- **③大量保有を倉庫の共有ソース化：未着手（検討）**。sankei-monitor/相互保有/kabusoku も各自スクレイプしているので、横展開するなら倉庫に `edinet_tairyo` 物理ソース＋`wh_large_holdings`ビューを足す価値あり（倉庫側の数日仕事・他アプリ再利用が前提）。
