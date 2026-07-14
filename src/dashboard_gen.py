@@ -28,9 +28,9 @@ FUND_SHORT = {
 }
 
 TIER_META = {
-    "A": ("最優先", "保有10%超 or 買い増し中×否決/継続"),
-    "B": ("要注目", "保有5%+の買い増し・継続"),
-    "C": ("ウォッチ", "初期・大口だが動意待ち"),
+    "1": ("最優先", "保有10%以上×(否決/+4pt買い増し/継続)"),
+    "2": ("要注目", "保有5%以上×(否決/+2pt買い増し/継続)"),
+    "3": ("ウォッチ", "初期・大口だが動意待ち"),
 }
 
 
@@ -89,9 +89,9 @@ def generate_dashboard(out_path: Path | None = None) -> Path:
     today = date.today().isoformat()
 
     wl_sections = ""
-    for t in "ABC":
+    for t in "123":
         label, cond = TIER_META[t]
-        wl_sections += f"""<div class="tierhead"><span class="tbadge b{t}">Tier {t}</span> {label} <span class="tsub">— {cond} ／ {counts[t]}社</span></div>
+        wl_sections += f"""<div class="tierhead"><span class="tbadge b{t}">Tier {t}</span> {label} <span class="tsub">— {cond} ／ {counts['t' + t]}社</span></div>
 <div class="tblwrap"><table class="wl">
 <thead><tr><th>コード</th><th>企業</th><th>アクティビスト</th><th>保有</th><th>推移Δ</th><th>否決</th><th>メモ</th></tr></thead>
 <tbody>{_wl_rows(kept, t)}</tbody></table></div>"""
@@ -131,7 +131,7 @@ h1{{font-size:24px;margin:0 0 4px}}.lede{{color:var(--sub);margin:0 0 22px;font-
 h2{{font-size:17px;margin:30px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--line)}}
 .tierhead{{margin:18px 0 8px;font-weight:600;font-size:14px}}.tsub{{color:var(--sub);font-weight:400;font-size:12.5px}}
 .tbadge{{display:inline-block;color:#fff;border-radius:6px;padding:1px 9px;font-size:12px;font-weight:700;margin-right:4px}}
-.bA{{background:var(--A)}}.bB{{background:var(--B)}}.bC{{background:var(--C)}}
+.b1{{background:var(--A)}}.b2{{background:var(--B)}}.b3{{background:var(--C)}}
 .tblwrap{{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--card)}}
 table{{width:100%;border-collapse:collapse;font-size:13.5px;min-width:640px}}
 th{{text-align:left;color:var(--sub);font-weight:600;font-size:12px;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap}}
@@ -158,7 +158,7 @@ tr:last-child td{{border-bottom:none}}
 <p class="lede">2025→2026のトリガー差分から、<b>現在も上場していてアクティビストが撤退していない</b>銘柄に厳選。非公開化・撤退・パッシブ・極小保有は除外。データ生成 {today}。</p>
 <div class="kpis">
 <div class="kpi"><div class="v a">{counts['kept']}</div><div class="l">実戦リスト採用社</div></div>
-<div class="kpi"><div class="v">{counts['A']}/{counts['B']}/{counts['C']}</div><div class="l">Tier A / B / C</div></div>
+<div class="kpi"><div class="v">{counts['t1']}/{counts['t2']}/{counts['t3']}</div><div class="l">Tier 1 / 2 / 3</div></div>
 <div class="kpi"><div class="v n">{counts['new']}</div><div class="l">新規トリガー(全体)</div></div>
 <div class="kpi"><div class="v g">{len(grads['graduations'])}</div><div class="l">去年の激戦→決着</div></div>
 </div>

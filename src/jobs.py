@@ -63,7 +63,7 @@ def fast_regen(progress=None) -> dict:
 
     c = result["counts"]
     log(f"完了: 継続{c['cont']}/新規{c['new']}/卒業{c['grad']} "
-        f"実戦{c['kept']}社(A{c['A']}/B{c['B']}/C{c['C']})")
+        f"実戦{c['kept']}社(T1:{c['t1']}/T2:{c['t2']}/T3:{c['t3']})")
     return result
 
 
