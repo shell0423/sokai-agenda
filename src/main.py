@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from src.csv_exporter import CsvExporter
 from src.edinet_client import EXTRAORDINARY_REPORT_CODE, EdinetClient
 from src.holding_searcher import HoldingSearcher
-from src.jquants_client import JQuantsClient
+from src import warehouse_client
 from src.models import AnalysisRecord, MeetingResult, TrendReport
 from src.resolution_parser import ResolutionParser
 from src.trend_analyzer import TrendAnalyzer
@@ -233,6 +233,11 @@ def _build_meeting_results(
             "あり" if meeting.has_shareholder_proposals else "なし",
         )
 
+    # 提出者名が空の行を warehouse の会社マスタ(wh_security)で補完
+    filled = warehouse_client.apply_master_names(meeting_results)
+    if filled:
+        logger.info("warehouse社名で補完: %d件", filled)
+
     return meeting_results
 
 
@@ -375,21 +380,10 @@ def run(args: argparse.Namespace) -> None:
             logger.info("該当する株主総会決議が見つかりませんでした")
             return
 
-        # Step 2: JQuants企業マスタで情報補完（オプション）
-        jquants_key = os.getenv("JQUANTS_API_KEY", "")
-        if jquants_key:
-            try:
-                jquants = JQuantsClient(api_key=jquants_key)
-                master = jquants.get_stock_master()
-                for meeting in meetings:
-                    code4 = meeting.sec_code[:4]
-                    if code4 in master and not meeting.company_name:
-                        meeting.company_name = master[code4]["name"]
-            except Exception:
-                logger.warning(
-                    "JQuants企業マスタ取得失敗（スキップ）",
-                    exc_info=True,
-                )
+        # Step 2: warehouse の会社マスタ(wh_security)で社名を補完（任意）
+        filled = warehouse_client.apply_master_names(meetings)
+        if filled:
+            logger.info("warehouse社名で補完: %d件", filled)
 
         # Step 3: 株主提案がある企業の大量保有報告書検索
         holdings_map: dict[str, list] = {}
