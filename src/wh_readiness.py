@@ -35,6 +35,30 @@ THRESHOLDS = {
 }
 
 
+# 判定結果の保存先(常時表示バッジ用に前回結果を残す)
+LAST_PATH = OUTPUT / "derived" / "wh_readiness_last.json"
+
+
+def save_last(result: dict) -> None:
+    """判定結果を保存(次回起動時のバッジ表示用)。"""
+    try:
+        LAST_PATH.parent.mkdir(parents=True, exist_ok=True)
+        LAST_PATH.write_text(
+            json.dumps(result, ensure_ascii=False, indent=1), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def load_last() -> dict | None:
+    """前回の判定結果を読む。無ければNone。"""
+    if not LAST_PATH.exists():
+        return None
+    try:
+        return json.loads(LAST_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
 def _norm(s: str) -> str:
     s = unicodedata.normalize("NFKC", s or "").lower()
     return re.sub(r"[\s　（）()・,，.．株式会社リミテッドｌｔｄltd]", "", s)

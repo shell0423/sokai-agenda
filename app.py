@@ -171,6 +171,21 @@ def render_detail(code: str) -> None:
 
 with st.sidebar:
     st.title("📊 総会×アクティビスト")
+
+    # 常時表示バッジ: 倉庫レディネスの前回結果(押さなくても一目で分かる)
+    _wr = st.session_state.get("wh_readiness") or wh_readiness.load_last()
+    if _wr and _wr.get("available"):
+        _emoji = {"red": "🔴 まだ", "yellow": "🟡 近い", "green": "🟢 寄せてよい"}
+        _ga = "✅" if _wr["gates"]["freshness"]["ok"] else "❌"
+        _line = (f"倉庫レディネス {_emoji.get(_wr['level'], '?')}"
+                 f"（{_wr['date']}確認・A鮮度{_ga}）")
+        if _wr["level"] == "green":
+            st.success(_line)
+        elif _wr["level"] == "yellow":
+            st.warning(_line)
+        else:
+            st.caption("🏭 " + _line + " ／ 下の「判定を実行」で更新")
+
     st.caption(
         f"2026総会キャッシュ: {_mtime(OUTPUT_DIR / 'cache' / '2026_meetings.json')}\n\n"
         f"大量保有CSV: {_mtime(OUTPUT_DIR / 'trigger_holdings.csv')}\n\n"
@@ -268,7 +283,9 @@ with st.sidebar:
                "月1くらいで押して「ゲートA(鮮度)」が✅になるのを待つ。")
     if st.button("判定を実行", width="stretch"):
         with st.spinner("倉庫を確認中…"):
-            st.session_state["wh_readiness"] = wh_readiness.evaluate()
+            res = wh_readiness.evaluate()
+        st.session_state["wh_readiness"] = res
+        wh_readiness.save_last(res)  # 次回起動時のバッジ用に保存
 
     r = st.session_state.get("wh_readiness")
     if r:
