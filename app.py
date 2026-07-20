@@ -21,7 +21,7 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-from src import jobs
+from src import jobs, wh_readiness
 from src.analysis_diff import OUTPUT_DIR
 from src.app_data import (
     company_detail,
@@ -259,6 +259,41 @@ with st.sidebar:
         total = int(cov["count"].fillna(0).sum())
         st.metric("期間内 臨時報告書(上場)", f"{total:,} 件")
         st.bar_chart(cov.set_index("date")["count"], height=160)
+
+    st.divider()
+
+    # ④ 倉庫レディネス判定（大量保有を倉庫wh_shareholdersに寄せてよいか）
+    st.markdown("### 🏭 倉庫レディネス判定")
+    st.caption("大量保有を倉庫(wh_shareholders)に寄せてよいか手動チェック。"
+               "月1くらいで押して「ゲートA(鮮度)」が✅になるのを待つ。")
+    if st.button("判定を実行", width="stretch"):
+        with st.spinner("倉庫を確認中…"):
+            st.session_state["wh_readiness"] = wh_readiness.evaluate()
+
+    r = st.session_state.get("wh_readiness")
+    if r:
+        if not r.get("available"):
+            st.error("倉庫に接続できませんでした: " + r.get("error", "")[:80])
+        else:
+            g = r["gates"]
+            def _g(ok): return "✅" if ok else "❌"
+            st.markdown(
+                f"- A. 鮮度 {_g(g['freshness']['ok'])} 最新 {g['freshness']['latest']}"
+                f"（{g['freshness']['days_behind']}日遅れ・直近30日{g['freshness']['recent30']}件）\n"
+                f"- B. カバレッジ {_g(g['coverage']['ok'])} {g['coverage']['pct']*100:.0f}%\n"
+                f"- C. 一致度 {_g(g['match']['ok'])} ±0.5pt一致 {g['match']['pct']*100:.0f}%"
+            )
+            msg = {"red": st.error, "yellow": st.warning, "green": st.success}[r["level"]]
+            msg(r["verdict"])
+            if r["mismatches"]:
+                with st.expander(f"差1pt超 {len(r['mismatches'])}社"):
+                    st.dataframe(pd.DataFrame([
+                        {"コード": m["code"],
+                         "企業名": m["name"].replace("株式会社", "")[:12],
+                         "アプリ%": m["app"], "倉庫%": m["wh"],
+                         "倉庫最新": m["wh_date"], "差pt": m["diff"]}
+                        for m in r["mismatches"]
+                    ]), width="stretch", hide_index=True)
 
 
 # ------------------------------------------------------------------
