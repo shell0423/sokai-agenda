@@ -1,0 +1,13 @@
+# Streamlit 全体設定。Cloud/ローカル両方で使用される。
+# 秘密情報は絶対にここに書かない（secrets.toml へ）。
+
+[theme]
+base = "light"
+primaryColor = "#1f77b4"
+
+[server]
+# アップロードは基本使わないので抑えめ。
+maxUploadSize = 20
+
+[browser]
+gatherUsageStats = false
