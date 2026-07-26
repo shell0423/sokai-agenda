@@ -1,9 +1,9 @@
 [build-system]
 requires = ["setuptools>=68"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
-name = "kabunushi-soukai-analysis"
+name = "sokai-agenda"
 version = "0.1.0"
 description = "3月決算企業の株主総会議案の賛否割合・アクティビスト保有状況を分析する"
 requires-python = ">=3.11"

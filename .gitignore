@@ -2,7 +2,6 @@
 __pycache__/
 *.pyc
 .env
-output/
 *.egg-info/
 dist/
 build/
@@ -10,3 +9,34 @@ build/
 .pytest_cache/
 .ruff_cache/
 .DS_Store
+.claude/
+
+# Streamlit Cloud 用 secrets（実キー入り・絶対にコミットしない）
+.streamlit/secrets.toml
+
+# ── output/ は既定で除外し、白リストで公開対象だけ戻す ──────────────
+# 注意: 「output/」と再帰除外にすると子は戻せない（gitの仕様）。
+# 「output/*」でトップだけ除外し、必要なサブディレクトリだけ !path/ で戻す。
+output/*
+output/**/*.log
+
+# 公開したい軽量な派生物だけ白リストで戻す
+!output/derived/
+!output/derived/**
+!output/watchlist_*.csv
+!output/trigger_holdings_summary.csv
+!output/trigger_holdings.csv
+!output/trigger_analysis_*.md
+!output/dashboard_*.html
+!output/diff_*.md
+!output/activist_holdings_timeline.csv
+!output/activist_analysis.csv
+
+# 白リスト内でも巨大化しうる派生物・ログは例外的に除外（防御的）
+output/derived/large_*.json
+output/derived/*_full.json
+output/derived/*_cache.json
+output/derived/*.log
+
+# data/ は元々 tracked。JSON だけを明示的に許可（誤って上位で無視されても復活する）
+!data/*.json

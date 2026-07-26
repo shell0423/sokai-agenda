@@ -325,3 +325,130 @@ python fetch_holdings.py
 - [ ] セクション(2)からの議案タイトル抽出（空タイトル対策）
 - [ ] EDINET APIリトライ機構の追加
 - [ ] activist_holdings_timeline.csv の自動更新スクリプト化
+
+---
+
+## Streamlit Cloud 公開版
+
+同じコードを Streamlit Community Cloud にデプロイし、Mac ローカルの launchd が
+毎日データを再生成→ GitHub に push、Cloud 側が自動再デプロイして最新スナップショット
+を配信する構成。
+
+- **公開 URL**: デプロイ後に確定（https://shell0423-sokai-agenda.streamlit.app 予定）
+- **更新頻度**: 毎日 06:00 JST（launchd → publish.py → GitHub → Streamlit Cloud）
+- **公開リポジトリ**: https://github.com/shell0423/sokai-agenda （public）
+
+### ローカル版と Cloud 版の機能差分
+
+| 機能 | ローカル | Cloud |
+|---|---|---|
+| 実戦リスト・全トリガー・卒業タブの閲覧 | ✅ | ✅ |
+| 銘柄詳細（議案別賛成率 2025 vs 2026） | ✅ | ✅ |
+| 大量保有タイムライン＋チャート | ✅ | ✅ |
+| ⚡ 高速再生成ボタン（キャッシュから） | ✅ | ✅ |
+| 🔄 フル更新ボタン（EDINET 再スキャン 40分〜2時間） | ✅ | ⚠️ 縮退（高速再生成に置換） |
+| 📡 データ充足チェック | ✅ | ✅（EDINET_API_KEY 登録時のみ） |
+| 🏭 倉庫レディネス判定 | ✅ | ❌ warehouse 未接続のため機能しません |
+
+### Cloud 用 Secrets の登録手順
+
+1. https://share.streamlit.io で対象 app を開く
+2. 右上 **⋯** → **Settings** → **Secrets** タブ
+3. `.streamlit/secrets.toml.example` の中身をコピーし、
+   `EDINET_API_KEY = "..."` を **自分の実キー** に置換して貼付
+4. **Save** をクリック（自動再デプロイされる）
+
+`.env`（ローカル）と `secrets.toml`（Cloud）の対応：
+
+| 変数 | ローカル `.env` | Cloud Secrets |
+|---|---|---|
+| `EDINET_API_KEY` | 必須 | 必須（フル更新縮退版・充足チェック用） |
+| `WAREHOUSE_DIR` | 任意 | 設定しない（Cloud には warehouse 無し） |
+
+### 実行環境の判定ロジック
+
+`app.py` の `_is_cloud()` が下記のどれかを満たせば Cloud と判定：
+- 環境変数 `STREAMLIT_RUNTIME_ENV=cloud`
+- `HOSTNAME` に `streamlit` を含む
+- `~/Claude/warehouse/client.py` が存在しない
+
+Cloud 判定時は：フル更新ボタンが高速再生成に置換、倉庫レディネスタブに警告バナー、
+`st.secrets` の `EDINET_API_KEY` を `os.environ` に注入。
+
+---
+
+## 毎日更新の仕組み（launchd）
+
+boutetsuya-stocks と同じ思想で、Mac ローカルの launchd が日次で全処理を回します。
+
+```
+06:00 JST
+   │
+   └─→ launchd (com.sokai.refresh)
+         │
+         └─→ .venv/bin/python scripts/publish.py
+               │
+               ├─ [1/4] scripts/full_update.sh
+               │     ├─ src.main --trend --years 2025,2026 --skip-holdings
+               │     ├─ search_trigger_holdings.py
+               │     └─ src.jobs fast
+               │
+               ├─ [2/4] 秘密情報スキャン（webhook URL/APIキー混入検査）
+               │     公開対象ファイル群を正規表現で走査。ヒット時は push 中止。
+               │
+               ├─ [3/4] git add（.gitignore 白リスト分のみ）
+               │     output/derived/, output/watchlist_*.csv,
+               │     output/trigger_holdings_summary.csv,
+               │     output/trigger_analysis_*.md, output/dashboard_*.html,
+               │     output/diff_*.md, data/*.json
+               │
+               └─ [4/4] git commit -m "daily: YYYY-MM-DD refresh" && git push origin main
+                     ↓
+                Streamlit Cloud が push を検知し auto-deploy
+```
+
+### launchd の on/off 手順
+
+**インストール（初回のみ）:**
+
+```bash
+cp ~/Claude/株主総会議案分析/scripts/com.sokai.refresh.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.sokai.refresh.plist
+launchctl list | grep sokai   # com.sokai.refresh が表示されればロード成功
+```
+
+**手動キック（テスト実行）:**
+
+```bash
+launchctl kickstart -k gui/$(id -u)/com.sokai.refresh
+# → output/logs/publish.log と output/logs/launchd_stdout.log を tail で監視
+```
+
+**停止:**
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.sokai.refresh.plist
+```
+
+**再ロード（plist を編集したあと）:**
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.sokai.refresh.plist
+cp ~/Claude/株主総会議案分析/scripts/com.sokai.refresh.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.sokai.refresh.plist
+```
+
+### publish.py の単体実行（launchd を通さない検証）
+
+```bash
+cd ~/Claude/株主総会議案分析
+.venv/bin/python scripts/publish.py --dry-run   # scan と git add まで、push はしない
+.venv/bin/python scripts/publish.py --skip-full # full_update をスキップして現状ファイルだけ公開
+.venv/bin/python scripts/publish.py             # 本番運用と同じ挙動
+```
+
+### ログの見方
+
+- `output/logs/publish.log` — publish.py 自身のログ（各ステップの ✅ / ❌）
+- `output/logs/full_update.log` — full_update.sh のログ
+- `output/logs/launchd_stdout.log` / `launchd_stderr.log` — launchd 経由の生 stdout/stderr
