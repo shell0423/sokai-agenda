@@ -36,6 +36,45 @@ st.set_page_config(
     layout="wide",
 )
 
+
+# ------------------------------------------------------------------
+# 実行環境判定: Streamlit Community Cloud か、ローカル (Mac) か
+# ------------------------------------------------------------------
+# Cloud では warehouse (~/Claude/warehouse) と bash スクリプト (full_update.sh)
+# が使えないため、機能を制限する必要がある。判定は多重チェック(どれか1つが真ならCloud):
+#   ① 明示フラグ STREAMLIT_RUNTIME_ENV=cloud
+#   ② HOSTNAME に "streamlit" を含む(Cloud ランナーの慣習)
+#   ③ warehouse/client.py が存在しない
+def _is_cloud() -> bool:
+    if os.environ.get("STREAMLIT_RUNTIME_ENV", "").lower() == "cloud":
+        return True
+    if "streamlit" in os.environ.get("HOSTNAME", "").lower():
+        return True
+    if not Path(os.path.expanduser("~/Claude/warehouse/client.py")).exists():
+        return True
+    return False
+
+
+IS_CLOUD = _is_cloud()
+
+# Cloud では EDINET_API_KEY を st.secrets 経由で受け取り、環境変数に注入する
+# （src/jobs.py など下流モジュールは os.getenv("EDINET_API_KEY") を使うため）。
+if IS_CLOUD:
+    try:
+        _cloud_edinet_key = st.secrets.get("EDINET_API_KEY", "")  # type: ignore[attr-defined]
+    except Exception:  # noqa: BLE001
+        _cloud_edinet_key = ""
+    if _cloud_edinet_key and not os.environ.get("EDINET_API_KEY"):
+        os.environ["EDINET_API_KEY"] = _cloud_edinet_key
+    _cloud_warehouse = ""
+    try:
+        _cloud_warehouse = st.secrets.get("WAREHOUSE_DIR", "")  # type: ignore[attr-defined]
+    except Exception:  # noqa: BLE001
+        pass
+    if _cloud_warehouse and not os.environ.get("WAREHOUSE_DIR"):
+        os.environ["WAREHOUSE_DIR"] = _cloud_warehouse
+
+
 TIER_LABEL = {"1": "🟦 Tier1 最優先", "2": "🟪 Tier2 要注目", "3": "⬜ Tier3 ウォッチ"}
 
 # Tierの正確な定義(src/analysis_diff.py の _tier / 除外ロジックと一致させる)。
@@ -217,28 +256,48 @@ with st.sidebar:
     st.markdown("### 🔄 フル更新 (EDINET)")
     st.caption("2026総会＋大量保有を再取得→分析まで一括(40分〜2時間)。"
                "アインHD総会(7/30)後などに")
-    fu = jobs.full_update_status()
-    if fu["running"]:
-        st.info(f"🏃 実行中 (PID {fu['pid']})")
-        if st.button("ログを更新", width="stretch"):
-            st.rerun()
-        if st.button("⛔ 停止", width="stretch"):
-            jobs.stop_full_update()
-            st.rerun()
-        with st.expander("ログ (末尾)", expanded=True):
-            st.code(fu["log_tail"] or "(まだ出力なし)", language=None)
+    if IS_CLOUD:
+        # Cloud には bash スクリプト・warehouse・長時間ランタイムが無いため、
+        # フル更新は「キャッシュからの高速再生成」に縮退させる。
+        st.caption("⚠️ Streamlit Cloud では bash スクリプトと warehouse が使えないため、"
+                   "フル更新は『キャッシュのみでの高速再生成』に縮退します。"
+                   "本格的な EDINET 再スキャンはローカル環境で実行してください。")
+        if st.button("Cloud用: 高速再生成のみ実行", width="stretch"):
+            ok = False
+            with st.status("再生成中…", expanded=True) as status:
+                try:
+                    jobs.fast_regen(progress=st.write)
+                    status.update(label="✅ 再生成完了", state="complete")
+                    st.cache_data.clear()
+                    ok = True
+                except Exception as e:  # noqa: BLE001
+                    status.update(label="❌ 失敗", state="error")
+                    st.error(str(e))
+            if ok:
+                st.rerun()
     else:
-        if fu["failed"]:
-            st.error("前回のフル更新はエラー終了しました(ログ参照)")
-        elif fu["done"]:
-            st.success("前回のフル更新は完了しています")
-        ok = st.checkbox("長時間ジョブを了解して実行する")
-        if st.button("フル更新を開始", disabled=not ok, width="stretch"):
-            jobs.start_full_update()
-            st.rerun()
-        if fu["log_tail"]:
-            with st.expander("前回ログ (末尾)"):
-                st.code(fu["log_tail"], language=None)
+        fu = jobs.full_update_status()
+        if fu["running"]:
+            st.info(f"🏃 実行中 (PID {fu['pid']})")
+            if st.button("ログを更新", width="stretch"):
+                st.rerun()
+            if st.button("⛔ 停止", width="stretch"):
+                jobs.stop_full_update()
+                st.rerun()
+            with st.expander("ログ (末尾)", expanded=True):
+                st.code(fu["log_tail"] or "(まだ出力なし)", language=None)
+        else:
+            if fu["failed"]:
+                st.error("前回のフル更新はエラー終了しました(ログ参照)")
+            elif fu["done"]:
+                st.success("前回のフル更新は完了しています")
+            ok = st.checkbox("長時間ジョブを了解して実行する")
+            if st.button("フル更新を開始", disabled=not ok, width="stretch"):
+                jobs.start_full_update()
+                st.rerun()
+            if fu["log_tail"]:
+                with st.expander("前回ログ (末尾)"):
+                    st.code(fu["log_tail"], language=None)
 
     st.divider()
 
@@ -281,7 +340,10 @@ with st.sidebar:
     st.markdown("### 🏭 倉庫レディネス判定")
     st.caption("大量保有を倉庫(wh_shareholders)に寄せてよいか手動チェック。"
                "月1くらいで押して「ゲートA(鮮度)」が✅になるのを待つ。")
-    if st.button("判定を実行", width="stretch"):
+    if IS_CLOUD:
+        st.warning("🏭 このタブは warehouse (`~/Claude/warehouse`) への接続が必要です。"
+                   "Streamlit Cloud では機能しません（ローカル環境限定）。")
+    if st.button("判定を実行", width="stretch", disabled=IS_CLOUD):
         with st.spinner("倉庫を確認中…"):
             res = wh_readiness.evaluate()
         st.session_state["wh_readiness"] = res
@@ -321,6 +383,10 @@ derived = load_derived()
 
 _htitle, _hbtn = st.columns([4, 1])
 _htitle.title("株主総会 アクティビスト実戦リスト 2026")
+if IS_CLOUD:
+    _htitle.caption("📅 本ページの数値は Mac ローカルの launchd が毎日 06:00 JST に "
+                    "生成し、GitHub に push されたスナップショットです。"
+                    "最新の生データはローカル版で確認してください。")
 with _hbtn:
     st.write("")  # タイトルとボタンの縦位置合わせ
     if st.button("🔄 更新", width="stretch",
