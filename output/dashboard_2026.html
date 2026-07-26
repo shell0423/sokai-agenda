@@ -1,0 +1,145 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>株主総会 アクティビスト実戦リスト 2026</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1a1d21;--sub:#5b636c;--line:#e5e8ec;--accent:#2f6df6;--up:#0a8f5b;--down:#d1435b;--flat:#9aa2ab;--rej:#b4531a;--A:#2f6df6;--B:#6b52d6;--C:#7a828c;--pv:#8a6d3b;--win:#0a8f5b;--exit:#b4531a;--settle:#5b636c}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1216;--card:#171b21;--ink:#e8ebef;--sub:#9aa2ab;--line:#262c34;--accent:#5b8cff;--up:#3ecf8e;--down:#ff6b81;--flat:#6b737c;--rej:#e08a4e;--A:#5b8cff;--B:#9d86ff;--C:#8892a0;--pv:#c9a66b;--win:#3ecf8e;--exit:#e08a4e;--settle:#9aa2ab}}
+:root[data-theme=dark]{--bg:#0f1216;--card:#171b21;--ink:#e8ebef;--sub:#9aa2ab;--line:#262c34;--accent:#5b8cff;--up:#3ecf8e;--down:#ff6b81;--flat:#6b737c;--rej:#e08a4e;--A:#5b8cff;--B:#9d86ff;--C:#8892a0;--pv:#c9a66b;--win:#3ecf8e;--exit:#e08a4e;--settle:#9aa2ab}
+:root[data-theme=light]{--bg:#f6f7f9;--card:#fff;--ink:#1a1d21;--sub:#5b636c;--line:#e5e8ec;--accent:#2f6df6;--up:#0a8f5b;--down:#d1435b;--flat:#9aa2ab;--rej:#b4531a;--A:#2f6df6;--B:#6b52d6;--C:#7a828c;--pv:#8a6d3b;--win:#0a8f5b;--exit:#b4531a;--settle:#5b636c}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;line-height:1.5;font-size:15px}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 18px 60px}
+h1{font-size:24px;margin:0 0 4px}.lede{color:var(--sub);margin:0 0 22px;font-size:14px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:26px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.kpi .v{font-size:26px;font-weight:700;letter-spacing:-.5px}.kpi .l{color:var(--sub);font-size:12px;margin-top:2px}
+.kpi .v.a{color:var(--A)}.kpi .v.n{color:var(--up)}.kpi .v.g{color:var(--pv)}
+h2{font-size:17px;margin:30px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--line)}
+.tierhead{margin:18px 0 8px;font-weight:600;font-size:14px}.tsub{color:var(--sub);font-weight:400;font-size:12.5px}
+.tbadge{display:inline-block;color:#fff;border-radius:6px;padding:1px 9px;font-size:12px;font-weight:700;margin-right:4px}
+.b1{background:var(--A)}.b2{background:var(--B)}.b3{background:var(--C)}
+.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:640px}
+th{text-align:left;color:var(--sub);font-weight:600;font-size:12px;padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:none}
+.code{font-variant-numeric:tabular-nums;color:var(--sub);font-weight:600;white-space:nowrap}
+.nm{font-weight:600;min-width:150px}.fund{color:var(--accent);font-weight:600;white-space:nowrap}
+.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.up{color:var(--up);font-weight:600}.down{color:var(--down);font-weight:600}.flat{color:var(--flat)}
+.th{color:var(--sub);font-size:12.5px}
+.chip{display:inline-block;border-radius:5px;padding:0 7px;font-size:11px;font-weight:600;margin-left:4px;vertical-align:1px}
+.chip.rej{background:color-mix(in srgb,var(--rej) 18%,transparent);color:var(--rej)}
+.seg-c{background:color-mix(in srgb,var(--B) 16%,transparent);color:var(--B)}
+.seg-n{background:color-mix(in srgb,var(--up) 16%,transparent);color:var(--up)}
+.gchip{display:inline-block;color:#fff;border-radius:6px;padding:1px 8px;font-size:11.5px;font-weight:600;white-space:nowrap}
+.gchip.pv{background:var(--pv)}.gchip.win{background:var(--win)}.gchip.exit{background:var(--exit)}.gchip.settle{background:var(--settle)}
+.note{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:12px 15px;font-size:13px;color:var(--sub);margin:14px 0}
+.note b{color:var(--ink)}
+.foot{color:var(--sub);font-size:12px;margin-top:30px;border-top:1px solid var(--line);padding-top:14px}
+.toggle{float:right;font-size:12px;color:var(--sub);cursor:pointer;border:1px solid var(--line);border-radius:6px;padding:3px 10px;background:var(--card)}
+</style></head><body><div class="wrap">
+<button class="toggle" onclick="var r=document.documentElement;r.dataset.theme=(r.dataset.theme==='dark'?'light':'dark')">◐ テーマ</button>
+<h1>株主総会 アクティビスト実戦リスト 2026</h1>
+<p class="lede">2025→2026のトリガー差分から、<b>現在も上場していてアクティビストが撤退していない</b>銘柄に厳選。非公開化・撤退・パッシブ・極小保有は除外。データ生成 2026-07-15。</p>
+<div class="kpis">
+<div class="kpi"><div class="v a">61</div><div class="l">実戦リスト採用社</div></div>
+<div class="kpi"><div class="v">28/15/18</div><div class="l">Tier 1 / 2 / 3</div></div>
+<div class="kpi"><div class="v n">203</div><div class="l">新規トリガー(全体)</div></div>
+<div class="kpi"><div class="v g">9</div><div class="l">去年の激戦→決着</div></div>
+</div>
+
+<h2>① 実戦ウォッチリスト（現在も張れる 61社）</h2>
+<div class="note">Tierは <b>保有比率 × 買い増し × 否決/継続の強度</b> で機械分類。<span class="chip seg-c">継続</span>=昨年から継続 <span class="chip seg-n">新規</span>=2026初トリガー。Δは2024→2026の保有推移。</div>
+<div class="tierhead"><span class="tbadge b1">Tier 1</span> 最優先 <span class="tsub">— 保有10%以上×(否決/+4pt買い増し/継続) ／ 28社</span></div>
+<div class="tblwrap"><table class="wl">
+<thead><tr><th>コード</th><th>企業</th><th>アクティビスト</th><th>保有</th><th>推移Δ</th><th>否決</th><th>メモ</th></tr></thead>
+<tbody><tr><td class="code">3963</td><td class="nm">シンクロ・フード <span class="chip seg-c">継続</span></td><td class="fund">AVI</td><td class="num">27.68%</td><td class="num"><span class="up">▲22.5</span></td><td><span class="chip rej">否決</span></td><td class="th">AVIが5%→28%。2026で3条件全該当・LIMも13%。継続中に激化</td></tr>
+<tr><td class="code">7752</td><td class="nm">リコー <span class="chip seg-n">新規</span></td><td class="fund">エフィッシモ</td><td class="num">24.77%</td><td class="num"><span class="up">▲10.08</span></td><td></td><td class="th">エフィッシモ24.8%(2024から積増)。大型・賛成率低下</td></tr>
+<tr><td class="code">9072</td><td class="nm">ニッコンホールディングス <span class="chip seg-n">新規</span></td><td class="fund">Farallon</td><td class="num">23.0%</td><td class="num"><span class="up">▲17.95</span></td><td></td><td class="th">Farallon5%→23%+Oasis。物流</td></tr>
+<tr><td class="code">8129</td><td class="nm">東邦ホールディングス <span class="chip seg-c">継続</span></td><td class="fund">３Ｄ Ｉｎｖｅｓｔｍｅｎｔ </td><td class="num">21.19%</td><td class="num"><span class="up">▲16.13</span></td><td></td><td class="th">3D 5%→21.2%。医薬品卸</td></tr>
+<tr><td class="code">4972</td><td class="nm">綜研化学 <span class="chip seg-n">新規</span></td><td class="fund">ＡＸＩＵＭ ＣＡＰＩＴＡＬ </td><td class="num">20.23%</td><td class="num"><span class="up">▲13.51</span></td><td></td><td class="th">AXIUM 6.7%→20.2%。化学中堅</td></tr>
+<tr><td class="code">2371</td><td class="nm">カカクコム <span class="chip seg-n">新規</span></td><td class="fund">Oasis</td><td class="num">19.52%</td><td class="num"><span class="up">▲14.29</span></td><td></td><td class="th">Oasis 5%→19.5%。大型ネット。コーポレートガバナンス要求</td></tr>
+<tr><td class="code">3401</td><td class="nm">帝人 <span class="chip seg-n">新規</span></td><td class="fund">エフィッシモ</td><td class="num">19.26%</td><td class="num"><span class="up">▲13.23</span></td><td></td><td class="th">エフィッシモ6%→19%。大型で存在感急拡大</td></tr>
+<tr><td class="code">9684</td><td class="nm">スクウェア・エニックス・ホールディングス <span class="chip seg-c">継続</span></td><td class="fund">３Ｄ Ｉｎｖｅｓｔｍｅｎｔ </td><td class="num">18.53%</td><td class="num"><span class="up">▲13.06</span></td><td></td><td class="th">3D 5.5%→18.5%。スクエニ大型</td></tr>
+<tr><td class="code">6333</td><td class="nm">ＴＥＩＫＯＫＵ <span class="chip seg-n">新規</span></td><td class="fund">ヴァレックス</td><td class="num">18.42%</td><td class="num"><span class="up">▲5.26</span></td><td><span class="chip rej">否決</span></td><td class="th">ヴァレックス18%。否決</td></tr>
+<tr><td class="code">2329</td><td class="nm">東北新社 <span class="chip seg-c">継続</span></td><td class="fund">３Ｄ Ｉｎｖｅｓｔｍｅｎｔ </td><td class="num">17.36%</td><td class="num"><span class="up">▲2.92</span></td><td></td><td class="th">3D 17.4%。メディア(非公開化観測も)</td></tr>
+<tr><td class="code">9913</td><td class="nm">日邦産業 <span class="chip seg-c">継続</span></td><td class="fund">ＡＸＩＵＭ ＣＡＰＩＴＡＬ </td><td class="num">17.0%</td><td class="num"><span class="up">▲0.91</span></td><td></td><td class="th">AXIUM 17%。配当議案否決の還元圧力(昨年から継続)</td></tr>
+<tr><td class="code">8871</td><td class="nm">ゴールドクレスト <span class="chip seg-c">継続</span></td><td class="fund">ストラテジックC</td><td class="num">16.28%</td><td class="num"><span class="up">▲7.28</span></td><td><span class="chip rej">否決</span></td><td class="th">SCが一貫買い増し16%。株主提案否決の膠着継続。不動産割安</td></tr>
+<tr><td class="code">9468</td><td class="nm">ＫＡＤＯＫＡＷＡ <span class="chip seg-n">新規</span></td><td class="fund">Oasis</td><td class="num">15.25%</td><td class="num"><span class="up">▲6.39</span></td><td><span class="chip rej">否決</span></td><td class="th">Oasis 8.9%→15.3%＋否決。ソニー10%も。株主構成が動く</td></tr>
+<tr><td class="code">7745</td><td class="nm">Ａ＆Ｄホロンホールディングス <span class="chip seg-n">新規</span></td><td class="fund">ストラテジックC</td><td class="num">15.01%</td><td class="num"><span class="up">▲9.77</span></td><td></td><td class="th">SC15%。計測器</td></tr>
+<tr><td class="code">6727</td><td class="nm">ワコム <span class="chip seg-c">継続</span></td><td class="fund">AVI</td><td class="num">14.83%</td><td class="num"><span class="up">▲5.74</span></td><td><span class="chip rej">否決</span></td><td class="th">AVI14.8%+カナメ。株主提案が2年連続否決される膠着でAVI積み増し</td></tr>
+<tr><td class="code">6237</td><td class="nm">イワキ <span class="chip seg-n">新規</span></td><td class="fund">Charon</td><td class="num">14.7%</td><td class="num"><span class="up">▲8.37</span></td><td><span class="chip rej">否決</span></td><td class="th">Charon14.7%+ダルトン。極端な低賛成率で否決</td></tr>
+<tr><td class="code">9882</td><td class="nm">イエローハット <span class="chip seg-n">新規</span></td><td class="fund">ストラテジックC</td><td class="num">13.83%</td><td class="num"><span class="up">▲8.81</span></td><td><span class="chip rej">否決</span></td><td class="th">SC新規5%→14%。2議案否決。カー用品割安</td></tr>
+<tr><td class="code">6517</td><td class="nm">デンヨー <span class="chip seg-n">新規</span></td><td class="fund">シンフォニー</td><td class="num">13.68%</td><td class="num"><span class="up">▲1.57</span></td><td><span class="chip rej">否決</span></td><td class="th">シンフォニー13.7%。否決</td></tr>
+<tr><td class="code">8011</td><td class="nm">三陽商会 <span class="chip seg-n">新規</span></td><td class="fund">AVI</td><td class="num">13.07%</td><td class="num"><span class="up">▲7.71</span></td><td></td><td class="th">AVI13%。アパレル</td></tr>
+<tr><td class="code">6262</td><td class="nm">ＰＥＧＡＳＵＳ <span class="chip seg-n">新規</span></td><td class="fund">Be Brave</td><td class="num">12.88%</td><td class="num"><span class="up">▲6.54</span></td><td></td><td class="th"></td></tr>
+<tr><td class="code">8585</td><td class="nm">オリエントコーポレーション <span class="chip seg-n">新規</span></td><td class="fund">ストラテジックC</td><td class="num">12.8%</td><td class="num"><span class="up">▲7.57</span></td><td><span class="chip rej">否決</span></td><td class="th">SC新規12.8%。消費者金融大手。否決</td></tr>
+<tr><td class="code">4452</td><td class="nm">花王 <span class="chip seg-n">新規</span></td><td class="fund">Oasis</td><td class="num">12.63%</td><td class="num"><span class="up">▲7.4</span></td><td><span class="chip rej">否決</span></td><td class="th">Oasis 5%→12.6%＋会社提案30%否決。超大型ブルーチップの象徴案件</td></tr>
+<tr><td class="code">6616</td><td class="nm">トレックス・セミコンダクター <span class="chip seg-c">継続</span></td><td class="fund">カナメC</td><td class="num">11.16%</td><td class="num"><span class="up">▲4.04</span></td><td><span class="chip rej">否決</span></td><td class="th">カナメが2年で倍増11%。否決継続</td></tr>
+<tr><td class="code">8358</td><td class="nm">スルガ銀行 <span class="chip seg-c">継続</span></td><td class="fund">インダスC</td><td class="num">11.08%</td><td class="num"><span class="up">▲5.13</span></td><td><span class="chip rej">否決</span></td><td class="th">インダス倍増11%。被害者救済ガバナンス要求が継続</td></tr>
+<tr><td class="code">6470</td><td class="nm">大豊工業 <span class="chip seg-n">新規</span></td><td class="fund">fundnote</td><td class="num">10.8%</td><td class="num"><span class="up">▲5.26</span></td><td></td><td class="th"></td></tr>
+<tr><td class="code">8818</td><td class="nm">京阪神ビルディング <span class="chip seg-n">新規</span></td><td class="fund">ストラテジックC</td><td class="num">10.66%</td><td class="num"><span class="up">▲5.57</span></td><td></td><td class="th"></td></tr>
+<tr><td class="code">4512</td><td class="nm">わかもと製薬 <span class="chip seg-c">継続</span></td><td class="fund">AVI</td><td class="num">10.6%</td><td class="num"><span class="up">▲4.46</span></td><td><span class="chip rej">否決</span></td><td class="th">AVI着実に積み増し10.6%。否決継続</td></tr>
+<tr><td class="code">4902</td><td class="nm">コニカミノルタ <span class="chip seg-n">新規</span></td><td class="fund">エフィッシモ</td><td class="num">10.6%</td><td class="num"><span class="up">▲4.79</span></td><td></td><td class="th">エフィッシモ10.6%(否決は誤検出)。大型・賛成率低下</td></tr></tbody></table></div><div class="tierhead"><span class="tbadge b2">Tier 2</span> 要注目 <span class="tsub">— 保有5%以上×(否決/+2pt買い増し/継続) ／ 15社</span></div>
+<div class="tblwrap"><table class="wl">
+<thead><tr><th>コード</th><th>企業</th><th>アクティビスト</th><th>保有</th><th>推移Δ</th><th>否決</th><th>メモ</th></tr></thead>
+<tbody><tr><td class="code">6023</td><td class="nm">ダイハツインフィニアース <span class="chip seg-n">新規</span></td><td class="fund">カナメC</td><td class="num">11.99%</td><td class="num"><span class="up">▲3.79</span></td><td></td><td class="th"></td></tr>
+<tr><td class="code">1786</td><td class="nm">オリエンタル白石 <span class="chip seg-n">新規</span></td><td class="fund">エフィッシモ</td><td class="num">11.85%</td><td class="num"><span class="up">▲2.09</span></td><td></td><td class="th"></td></tr>
+<tr><td class="code">9069</td><td class="nm">センコーグループホールディングス <span class="chip seg-n">新規</span></td><td class="fund">ダルトン</td><td class="num">9.47%</td><td class="num"><span class="up">▲4.46</span></td><td><span class="chip rej">否決</span></td><td class="th">ダルトン9.5%。否決</td></tr>
+<tr><td class="code">4549</td><td class="nm">栄研化学 <span class="chip seg-c">継続</span></td><td class="fund">ＮＩＰＰＯＮ ＡＣＴＩＶＥ </td><td class="num">9.46%</td><td class="num"><span class="up">▲5.85</span></td><td></td><td class="th">NAVF9.5%買い増し。検査薬</td></tr>
+<tr><td class="code">2327</td><td class="nm">日鉄ソリューションズ <span class="chip seg-c">継続</span></td><td class="fund">３Ｄ Ｉｎｖｅｓｔｍｅｎｔ </td><td class="num">9.4%</td><td class="num"><span class="up">▲4.4</span></td><td><span class="chip rej">否決</span></td><td class="th">3D 9.4%＋親会社取引の定款変更否決。親子上場ガバナンス</td></tr>
+<tr><td class="code">1921</td><td class="nm">巴コーポレーション <span class="chip seg-c">継続</span></td><td class="fund">Be Brave</td><td class="num">9.37%</td><td class="num"><span class="up">▲4.24</span></td><td></td><td class="th">Be Brave9.4%。建設</td></tr>
+<tr><td class="code">5013</td><td class="nm">ユシロ <span class="chip seg-n">新規</span></td><td class="fund">fundnote</td><td class="num">8.97%</td><td class="num"><span class="up">▲3.41</span></td><td></td><td class="th"></td></tr>
+<tr><td class="code">5821</td><td class="nm">平河ヒューテック <span class="chip seg-n">新規</span></td><td class="fund">ＡＸＩＵＭ ＣＡＰＩＴＡＬ </td><td class="num">8.65%</td><td class="num"><span class="up">▲3.13</span></td><td></td><td class="th"></td></tr>
+<tr><td class="code">9308</td><td class="nm">乾汽船 <span class="chip seg-n">新規</span></td><td class="fund">ＭＩＲＩ Ｃａｐｉｔａｌ Ｍ</td><td class="num">8.39%</td><td class="num"><span class="up">▲3.33</span></td><td></td><td class="th">MIRI 8.4%買い増し。海運アクティビズムの定番</td></tr>
+<tr><td class="code">4886</td><td class="nm">あすか製薬ホールディングス <span class="chip seg-c">継続</span></td><td class="fund">ＮＩＰＰＯＮ ＡＣＴＩＶＥ </td><td class="num">8.34%</td><td class="num"><span class="up">▲4.71</span></td><td></td><td class="th"></td></tr>
+<tr><td class="code">1976</td><td class="nm">明星工業 <span class="chip seg-n">新規</span></td><td class="fund">ＮＩＰＰＯＮ ＡＣＴＩＶＥ </td><td class="num">7.95%</td><td class="num"><span class="up">▲2.63</span></td><td></td><td class="th"></td></tr>
+<tr><td class="code">5922</td><td class="nm">那須電機鉄工 <span class="chip seg-c">継続</span></td><td class="fund">ＮＩＰＰＯＮ ＡＣＴＩＶＥ </td><td class="num">7.84%</td><td class="num"><span class="up">▲3.13</span></td><td><span class="chip rej">否決</span></td><td class="th"></td></tr>
+<tr><td class="code">9726</td><td class="nm">ＫＮＴ－ＣＴホールディングス <span class="chip seg-n">新規</span></td><td class="fund">fundnote</td><td class="num">7.44%</td><td class="num"><span class="up">▲2.19</span></td><td></td><td class="th"></td></tr>
+<tr><td class="code">9982</td><td class="nm">タキヒヨー <span class="chip seg-n">新規</span></td><td class="fund">UGS</td><td class="num">7.18%</td><td class="num"><span class="up">▲2.15</span></td><td><span class="chip rej">否決</span></td><td class="th"></td></tr>
+<tr><td class="code">6513</td><td class="nm">オリジン <span class="chip seg-n">新規</span></td><td class="fund">LIM</td><td class="num">5.11%</td><td class="num"><span class="flat"></span></td><td><span class="chip rej">否決</span></td><td class="th"></td></tr></tbody></table></div><div class="tierhead"><span class="tbadge b3">Tier 3</span> ウォッチ <span class="tsub">— 初期・大口だが動意待ち ／ 18社</span></div>
+<div class="tblwrap"><table class="wl">
+<thead><tr><th>コード</th><th>企業</th><th>アクティビスト</th><th>保有</th><th>推移Δ</th><th>否決</th><th>メモ</th></tr></thead>
+<tbody><tr><td class="code">7222</td><td class="nm">日産車体 <span class="chip seg-n">新規</span></td><td class="fund">エフィッシモ</td><td class="num">29.68%</td><td class="num"><span class="flat"></span></td><td></td><td class="th">エフィッシモ29.7%の大口。日産系再編思惑</td></tr>
+<tr><td class="code">7677</td><td class="nm">ヤシマキザイ <span class="chip seg-n">新規</span></td><td class="fund">LIM</td><td class="num">26.85%</td><td class="num"><span class="flat"></span></td><td></td><td class="th"></td></tr>
+<tr><td class="code">7157</td><td class="nm">ライフネット生命保険 <span class="chip seg-n">新規</span></td><td class="fund">エフィッシモ</td><td class="num">21.13%</td><td class="num"><span class="up">▲1.57</span></td><td></td><td class="th">エフィッシモ21%。ネット生保</td></tr>
+<tr><td class="code">8750</td><td class="nm">第一ライフグループ <span class="chip seg-n">新規</span></td><td class="fund">エフィッシモ</td><td class="num">10.99%</td><td class="num"><span class="up">▲1.11</span></td><td></td><td class="th"></td></tr>
+<tr><td class="code">2229</td><td class="nm">カルビー <span class="chip seg-n">新規</span></td><td class="fund">Oasis</td><td class="num">7.12%</td><td class="num"><span class="up">▲1.14</span></td><td></td><td class="th"></td></tr>
+<tr><td class="code">1721</td><td class="nm">コムシスホールディングス <span class="chip seg-n">新規</span></td><td class="fund">Oasis</td><td class="num">6.32%</td><td class="num"><span class="up">▲0.71</span></td><td></td><td class="th"></td></tr>
+<tr><td class="code">7254</td><td class="nm">ユニバンス <span class="chip seg-n">新規</span></td><td class="fund">Be Brave</td><td class="num">6.08%</td><td class="num"><span class="up">▲1.07</span></td><td></td><td class="th"></td></tr>
+<tr><td class="code">7292</td><td class="nm">村上開明堂 <span class="chip seg-n">新規</span></td><td class="fund">ＮＩＰＰＯＮ ＡＣＴＩＶＥ </td><td class="num">5.94%</td><td class="num"><span class="up">▲1.47</span></td><td></td><td class="th"></td></tr>
+<tr><td class="code">9068</td><td class="nm">丸全昭和運輸 <span class="chip seg-n">新規</span></td><td class="fund">シンフォニー</td><td class="num">5.22%</td><td class="num"><span class="up">▲0.01</span></td><td></td><td class="th"></td></tr>
+<tr><td class="code">6763</td><td class="nm">帝国通信工業 <span class="chip seg-n">新規</span></td><td class="fund">ＮＩＰＰＯＮ ＡＣＴＩＶＥ </td><td class="num">5.03%</td><td class="num"><span class="up">▲0.41</span></td><td></td><td class="th"></td></tr>
+<tr><td class="code">3106</td><td class="nm">倉敷紡績 <span class="chip seg-n">新規</span></td><td class="fund">AVI</td><td class="num">5.02%</td><td class="num"><span class="up">▲0.02</span></td><td></td><td class="th"></td></tr>
+<tr><td class="code">2664</td><td class="nm">カワチ薬品 <span class="chip seg-n">新規</span></td><td class="fund">カナメC</td><td class="num">5.01%</td><td class="num"><span class="flat"></span></td><td></td><td class="th"></td></tr>
+<tr><td class="code">6820</td><td class="nm">アイコム <span class="chip seg-n">新規</span></td><td class="fund">カナメC</td><td class="num">5.01%</td><td class="num"><span class="flat"></span></td><td></td><td class="th"></td></tr>
+<tr><td class="code">8291</td><td class="nm">日産東京販売ホールディングス <span class="chip seg-c">継続</span></td><td class="fund">ＮＩＰＰＯＮ ＡＣＴＩＶＥ </td><td class="num">4.8%</td><td class="num"><span class="up">▲1.47</span></td><td></td><td class="th"></td></tr>
+<tr><td class="code">5331</td><td class="nm">ノリタケ <span class="chip seg-c">継続</span></td><td class="fund">ストラテジックC</td><td class="num">4.36%</td><td class="num"><span class="down">▼0.74</span></td><td><span class="chip rej">否決</span></td><td class="th"></td></tr>
+<tr><td class="code">9357</td><td class="nm">名港海運 <span class="chip seg-c">継続</span></td><td class="fund">ＮＩＰＰＯＮ ＡＣＴＩＶＥ </td><td class="num">4.06%</td><td class="num"><span class="up">▲0.15</span></td><td><span class="chip rej">否決</span></td><td class="th"></td></tr>
+<tr><td class="code">4109</td><td class="nm">ステラケミファ <span class="chip seg-c">継続</span></td><td class="fund">ＮＩＰＰＯＮ ＡＣＴＩＶＥ </td><td class="num">4.03%</td><td class="num"><span class="up">▲0.45</span></td><td><span class="chip rej">否決</span></td><td class="th"></td></tr>
+<tr><td class="code">5930</td><td class="nm">文化シヤッター <span class="chip seg-n">新規</span></td><td class="fund">ストラテジックC</td><td class="num">3.74%</td><td class="num"><span class="flat"></span></td><td></td><td class="th"></td></tr></tbody></table></div>
+
+<h2>② 去年の激戦は「決着」した（卒業＝リストから外れた理由）</h2>
+<div class="note">去年のTier1級は沈静化ではなく<b>資本イベントで決着</b>。<span class="gchip pv">非公開化系</span>は投資対象から消滅、<span class="gchip win">アクティビスト勝利</span>は既に経営権交代済み。一次情報(EDINET/kessanai/報道)で確認。</div>
+<div class="tblwrap"><table><thead><tr><th>コード</th><th>企業</th><th>決着の型</th><th>2026に起きたこと</th></tr></thead><tbody>
+<tr><td class="code">4626</td><td class="nm">太陽ホールディングス</td><td><span class="gchip pv">非公開化(TOB)</span></td><td class="th">KKRが1株4,750円・約5,000億円で買収合意(2026/3)。Oasis(14.9%)は委任状争奪から一転TOB応募側へ。2026/10 TOB→上場廃止予定。2026/6総会は全員可決で正常化</td></tr>
+<tr><td class="code">5017</td><td class="nm">富士石油</td><td><span class="gchip pv">完全子会社化</span></td><td class="th">親会社・出光が22%→TOB約92%→株式併合で100%取得、2026/1/20上場廃止。少数株主は締め出し済み</td></tr>
+<tr><td class="code">6670</td><td class="nm">MCJ</td><td><span class="gchip pv">MBO</span></td><td class="th">ベインキャピタル(BCPE)69.56%で非公開化。創業者は34%全応募、株式併合でスクイーズアウト</td></tr>
+<tr><td class="code">9377</td><td class="nm">エージーピー</td><td><span class="gchip pv">支配株主連合で締め出し</span></td><td class="th">JAL+ANA+空港ビル73%が2025/10株式併合で少数株主を1,550円で締め出し、実質非公開化</td></tr>
+<tr><td class="code">6772</td><td class="nm">東京コスモス電機</td><td><span class="gchip win">アクティビスト勝利</span></td><td class="th">2025年に株主提案候補8名が経営権掌握→2026年は&quot;会社提案&quot;として96〜98%可決。AXIUM 32%+成成17%で支配、若林勇人が社長就任</td></tr>
+<tr><td class="code">8105</td><td class="nm">堀田丸正→Bitcoin Japan</td><td><span class="gchip win">アクティビスト勝利</span></td><td class="th">Bakkt系バックト28%の株主提案スレートが80.6%で旧経営陣を追放。RIZAPは1%まで売却、社名変更し仮想通貨事業へ転換。上場は維持</td></tr>
+<tr><td class="code">6380</td><td class="nm">オリエンタルチエン工業</td><td><span class="gchip settle">和解/取締役会統合</span></td><td class="th">2025年に当選した株主側候補が2026年は&quot;会社提案&quot;として99%再選。Ucapi 48.9%が支配株主化。上場維持</td></tr>
+<tr><td class="code">4973</td><td class="nm">日本高純度化学</td><td><span class="gchip exit">アクティビスト撤退</span></td><td class="th">ひびきが21.3%ピーク→7.47%へ連続売却中。2026年は株主提案消滅・賛成率79%→99.8%回復。ブラックロック等の純投資勢に株主入替</td></tr>
+<tr><td class="code">6181</td><td class="nm">タメニー</td><td><span class="gchip settle">希薄化+活動家取り込み</span></td><td class="th">AIフュージョンが16%→40%で連結子会社化。活動家IBJは第三者割当を自ら引受け資本業務提携パートナーへ転換。2026年全議案94%可決</td></tr>
+</tbody></table></div>
+<div class="note"><b>例外:</b> アインホールディングス(9627) — 「卒業」ではなく総会が2026-07-30でまだ未開催なだけ。Oasisが16.68%→17.74%へ買い増し(重要提案行為明記)、抗争は継続・激化中。7/30総会後にデータ更新すればトリガー入りの見込み</div>
+
+<h2>③ 注意点（機械処理の癖・検証済み）</h2>
+<div class="note">・否決判定は一部過検出: 空タイトル/文字化け行をパーサーが否決と誤判定することがある(コニカミノルタ4902が実例)。重要銘柄はkessanai get_agm_vote_resultsで一次照合を<br>
+・「否決」の多くはアクティビスト自身の株主提案が否決されたもの(=物言う株主が票で連敗しつつ株を積む膠着。経営陣が負けたわけではない)<br>
+・「新規トリガー」≠「ファンド新規参入」(エフィッシモ等は2024から積み増した継続ポジションが2026で賛成率低下の閾値を超えただけ)<br>
+・議案タイトル空欄率は毎年55-59%(パーサー既知の課題)。否決判定は賛成率&lt;50%で行うためタイトル空でも機能する<br>・最終判断は各社の一次情報（臨時報告書・大量保有報告書）で。</div>
+<div class="note"><b>除外した12社</b>（参考）：3569 セーレン(保有極小(0.7%))、7459 メディパルホールディングス(バリュー保有・縮小中(非アクティビスト))、7731 ニコン(バリュー保有・縮小中(非アクティビスト))、1860 戸田建設(バリュー保有・縮小中(非アクティビスト))、1951 エクシオグループ(バリュー保有・縮小中(非アクティビスト))、3608 ＴＳＩホールディングス(保有極小(0.26%))、4462 石原ケミカル(保有極小(1.29%))、5541 大平洋金属(保有極小(2.12%))、5991 日本発條(バリュー保有・縮小中(非アクティビスト))、6145 ＮＩＴＴＯＫＵ(パッシブ/インデックス運用)、7226 極東開発工業(撤退方向(Δ-2.73))、9168 ライズ・コンサルティング・グループ(パッシブ/インデックス運用)</div>
+
+<div class="foot">出典: EDINET臨時報告書(議決権行使結果)/大量保有報告書、kessanai MCP、報道。ツール: ~/Claude/株主総会議案分析/。関連: diff_2025_2026.md / trigger_analysis_2026.md / watchlist_2026.csv</div>
+</div></body></html>
