@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import shutil
 import subprocess
 import sys
 from datetime import datetime
@@ -23,8 +24,14 @@ LOG_DIR = PROJECT_ROOT / "output" / "logs"
 LOG_FILE = LOG_DIR / "publish.log"
 FULL_UPDATE_SH = PROJECT_ROOT / "scripts" / "full_update.sh"
 
+# GitHub Pages の配信元（boutetsuya-stocks と同じ「HTML 1枚を配る」方式）。
+# main ブランチの docs/ を Pages のソースに設定してあるため、ここへ置けば公開される。
+DASHBOARD_HTML = PROJECT_ROOT / "output" / "dashboard_2026.html"
+PAGES_DIR = PROJECT_ROOT / "docs"
+
 # 公開対象（.gitignore の白リストと一致させる）。ワイルドカードは git add が展開する。
 PUBLISH_TARGETS: list[str] = [
+    "docs/",
     "output/derived/",
     "output/watchlist_*.csv",
     "output/trigger_holdings_summary.csv",
@@ -105,6 +112,28 @@ def scan_for_secrets(paths: list[Path]) -> list[tuple[Path, str]]:
     return hits
 
 
+def stage_pages() -> bool:
+    """ダッシュボードHTMLを docs/index.html へ複製する（GitHub Pages の配信元）。
+
+    boutetsuya-stocks の publish.py --dir と同じ役割。Pages は静的配信なので
+    Python は動かず、生成済みHTMLをそのまま配る。
+
+    Returns:
+        複製したら True。生成物が無ければ False（この段は致命ではない）。
+    """
+    if not DASHBOARD_HTML.exists():
+        _log(f"⚠️  {DASHBOARD_HTML.name} が無いため Pages 更新をスキップ"
+             "（先に full_update / jobs fast を実行）")
+        return False
+    PAGES_DIR.mkdir(parents=True, exist_ok=True)
+    # Jekyll に処理させない（_ 始まりのパス等を素通しさせるための慣習ファイル）
+    (PAGES_DIR / ".nojekyll").touch()
+    shutil.copy2(DASHBOARD_HTML, PAGES_DIR / "index.html")
+    kb = (PAGES_DIR / "index.html").stat().st_size / 1024
+    _log(f"✅ docs/index.html を更新（{kb:.0f}KB）")
+    return True
+
+
 def _resolve_publish_files() -> list[Path]:
     """PUBLISH_TARGETS を実ファイルパスに展開。"""
     files: list[Path] = []
@@ -147,7 +176,7 @@ def main() -> int:
         if not FULL_UPDATE_SH.exists():
             _log(f"❌ {FULL_UPDATE_SH} が見つかりません")
             return 1
-        _log("--- [1/4] full_update.sh 実行 ---")
+        _log("--- [1/5] full_update.sh 実行 ---")
         proc = subprocess.run(
             ["/bin/bash", str(FULL_UPDATE_SH)],
             cwd=str(PROJECT_ROOT),
@@ -162,10 +191,14 @@ def main() -> int:
             return proc.returncode
         _log("✅ full_update.sh 完了")
     else:
-        _log("--- [1/4] full_update.sh スキップ (--skip-full) ---")
+        _log("--- [1/5] full_update.sh スキップ (--skip-full) ---")
 
-    # 2) 公開対象ファイルを列挙・秘密情報スキャン
-    _log("--- [2/4] 公開対象を列挙 & 秘密情報スキャン ---")
+    # 2) GitHub Pages 配信用に docs/index.html を更新
+    _log("--- [2/5] docs/ (GitHub Pages) を更新 ---")
+    stage_pages()
+
+    # 3) 公開対象ファイルを列挙・秘密情報スキャン
+    _log("--- [3/5] 公開対象を列挙 & 秘密情報スキャン ---")
     files = _resolve_publish_files()
     _log(f"対象 {len(files)} ファイル")
     hits = scan_for_secrets(files)
@@ -176,8 +209,8 @@ def main() -> int:
         return 2
     _log("✅ 秘密情報の混入なし")
 
-    # 3) git add
-    _log("--- [3/4] git add ---")
+    # 4) git add
+    _log("--- [4/5] git add ---")
     add_cmd = ["git", "add"] + PUBLISH_TARGETS
     proc = subprocess.run(add_cmd, cwd=str(PROJECT_ROOT), text=True, capture_output=True)
     if proc.returncode != 0:
@@ -191,13 +224,13 @@ def main() -> int:
         _log("差分なし。commit/push スキップして正常終了")
         return 0
 
-    # 4) commit & push
+    # 5) commit & push
     if args.dry_run:
-        _log("--- [4/4] dry-run のため commit/push はスキップ ---")
+        _log("--- [5/5] dry-run のため commit/push はスキップ ---")
         # ステージング状態は残しておく（オペレータが確認できるよう）
         return 0
 
-    _log("--- [4/4] commit & push ---")
+    _log("--- [5/5] commit & push ---")
     msg = args.message or f"daily: {datetime.now().strftime('%Y-%m-%d')} refresh"
     _run(["git", "commit", "-m", msg])
     _run(["git", "push", "origin", "main"])

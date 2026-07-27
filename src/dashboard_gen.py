@@ -201,7 +201,8 @@ tr:last-child td{{border-bottom:none}}
 <div class="note">{caveat_html}<br>・最終判断は各社の一次情報（臨時報告書・大量保有報告書）で。</div>
 <div class="note"><b>除外した{counts['excluded']}社</b>（参考）：{exl}</div>
 
-<div class="foot">出典: EDINET臨時報告書(議決権行使結果)/大量保有報告書、kessanai MCP、報道。ツール: ~/Claude/株主総会議案分析/。関連: diff_2025_2026.md / trigger_analysis_2026.md / watchlist_2026.csv</div>
+<div class="foot">出典: EDINET臨時報告書(議決権行使結果)・大量保有報告書／株価・PER・PBR は warehouse(J-Quants/EDINET)／kessanai／報道。<br>
+※本ページは個人的な記録・学習目的の参考情報であり、<b>投資勧誘・投資助言ではありません</b>。機械抽出のため誤検出を含みます。最終判断は必ず一次情報（臨時報告書・大量保有報告書の原本）でご確認ください。</div>
 </div></body></html>"""
 
     out_path = out_path or OUTPUT_DIR / "dashboard_2026.html"
