@@ -18,6 +18,8 @@
 
 - **実戦リスト / 全トリガー / 卒業・決着 / 銘柄検索** の4タブ。行クリックで銘柄詳細
   （議案別賛成率 2025 vs 2026・大量保有タイムライン＋チャート・トリガー該当理由）
+- **株価・PER・PBR・配当利回り・ROE** を実戦リストの表と銘柄詳細に表示（warehouse `mart_latest` 由来）。
+  銘柄詳細には **株探・IRBANK（大量保有／臨時報告書）への外部リンク**付き
 - サイドバーのボタンで実行:
   **⚡高速再生成**（キャッシュから分析一式・数秒〜1分）／
   **🔄フル更新**（EDINET再スキャン・バックグラウンド40分〜2時間）／
@@ -27,7 +29,8 @@
 
 - Python 3.11+
 - EDINET API（臨時報告書・大量保有報告書）
-- warehouse（`~/Claude/warehouse` の `wh_security`）＝会社マスタ・社名補完（read_only）
+- warehouse（`~/Claude/warehouse`）＝会社マスタ `wh_security`（社名補完）＋
+  現在ファンダ `mart_latest`（株価・PER・PBR・配当利回り・ROE）。いずれも read_only・即クローズ
 - httpx / duckdb / pandas / openpyxl / streamlit
 
 ## 分析フロー（3段階の漏斗型）
@@ -284,6 +287,7 @@ python fetch_holdings.py
 | 臨時報告書（議決結果） | EDINET API | docTypeCode: 臨時報告書 |
 | 大量保有報告書 | EDINET API / IRBANK | 5%ルール開示 |
 | 企業マスタ | warehouse `wh_security` | 任意（社名補完用・read_only） |
+| 株価・PER・PBR・利回り・ROE | warehouse `mart_latest` | 任意（read_only）。Mac側で derived JSON に焼き込み Cloud へ配布 |
 | 株主総会一覧 | JPX | 参照用（APIアクセス不可） |
 
 ### 参考URL
@@ -349,6 +353,8 @@ python fetch_holdings.py
 | 🔄 フル更新ボタン（EDINET 再スキャン 40分〜2時間） | ✅ | ⚠️ 縮退（高速再生成に置換） |
 | 📡 データ充足チェック | ✅ | ✅（EDINET_API_KEY 登録時のみ） |
 | 🏭 倉庫レディネス判定 | ✅ | ❌ warehouse 未接続のため機能しません |
+| 株価・PER・PBR の表示 | ✅ 最新（倉庫を直接参照） | ✅ 配布スナップショット（実戦リスト・除外の73社のみ） |
+| 株探・IRBANK リンク | ✅ | ✅ |
 
 ### Cloud 用 Secrets の登録手順
 

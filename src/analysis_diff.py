@@ -264,6 +264,10 @@ def build_all(
     order = {"1": 0, "2": 1, "3": 2}
     kept.sort(key=lambda r: (order[r["tier"]], -(r["ratio"] or 0)))
 
+    # 株価・PER・PBR を倉庫(mart_latest)から焼き込む。
+    # Cloud には warehouse が無いので、ここで JSON に埋めた値がそのまま配布される。
+    fund_asof = _attach_fundamentals(kept + excluded)
+
     # スクリーニングの流れ(漏斗)の各段の社数。使い方タブで表示する。
     funnel = {
         "meetings": _count_meetings(2026),          # ① 総会データを取得した全社
@@ -277,6 +281,7 @@ def build_all(
     }
 
     result = {
+        "fundamentals_asof": fund_asof,
         "sets": {"cont": cont, "new": new, "grad": grad},
         "counts": {
             "prev_total": len(s_prev), "curr_total": len(s_curr),
@@ -302,6 +307,46 @@ def build_all(
     return result
 
 
+def _load_prev_fundamentals() -> dict[str, dict]:
+    """前回の derived JSON に焼かれている fund を {code: fund} で返す。
+
+    倉庫に繋げない環境(Streamlit Cloud)で再生成しても、配布済みの株価/PERが
+    消えないよう引き継ぐために使う。
+    """
+    path = DERIVED_DIR / "diff_watchlist.json"
+    if not path.exists():
+        return {}
+    try:
+        prev = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+    out: dict[str, dict] = {}
+    for row in list(prev.get("watchlist", [])) + list(prev.get("excluded", [])):
+        if row.get("fund"):
+            out[row["code"]] = row["fund"]
+    return out
+
+
+def _attach_fundamentals(rows: list[dict]) -> str:
+    """各行に fund(株価/PER/PBR/利回り/ROE)を付ける。取得日を返す。
+
+    倉庫が無ければ前回値を引き継ぎ、それも無ければ fund=None のままにする
+    (アプリ側は None を「—」表示にフォールバックする)。
+    """
+    from src import warehouse_client
+
+    codes = [r["code"] for r in rows]
+    fetched = warehouse_client.get_fundamentals(codes)
+    carried = {} if fetched else _load_prev_fundamentals()
+    asof = ""
+    for r in rows:
+        f = fetched.get(r["code"]) or carried.get(r["code"])
+        r["fund"] = f
+        if f and f.get("date") > asof:
+            asof = f["date"]
+    return asof
+
+
 def _base(code: str, t_curr: dict, ta: dict) -> dict:
     v = t_curr[code]
     return {
@@ -320,11 +365,17 @@ def _export_watchlist_csv(kept: list[dict]) -> None:
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["Tier", "区分", "証券コード", "企業名", "主要アクティビスト",
-                    "保有%", "推移Δpp", "否決", "条件", "推移", "メモ"])
+                    "保有%", "推移Δpp", "否決", "条件",
+                    "株価", "PER", "PBR", "配当利回り%", "株価日付",
+                    "推移", "メモ"])
         for r in kept:
+            f = r.get("fund") or {}
             w.writerow([r["tier"], r["seg"], r["code"], r["name"], r["holder"],
                         r["ratio"], r["delta"], "○" if r["C"] else "",
-                        r["p_curr"], r["trend"], r["thesis"]])
+                        r["p_curr"],
+                        f.get("price", ""), f.get("per", ""), f.get("pbr", ""),
+                        f.get("yield_pct", ""), f.get("date", ""),
+                        r["trend"], r["thesis"]])
 
 
 if __name__ == "__main__":

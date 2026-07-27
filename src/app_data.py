@@ -109,6 +109,23 @@ def proposals_table(meeting: dict | None) -> list[dict]:
     return rows
 
 
+def load_fundamentals(code: str) -> dict | None:
+    """株価/PER/PBR を返す。まず配布済みJSON、無ければ倉庫を直接引く。
+
+    実戦リスト/除外の銘柄は build_all が derived JSON に焼き込んでいるのでそれを使う。
+    全トリガー・銘柄検索から開いた銘柄はJSONに無いため、ローカル(倉庫あり)でのみ
+    その場で1銘柄だけ取得する。Cloud では倉庫が無いので None になる。
+    """
+    derived = load_derived()
+    if derived:
+        for row in derived.get("watchlist", []) + derived.get("excluded", []):
+            if row["code"] == code and row.get("fund"):
+                return row["fund"]
+    from src import warehouse_client
+
+    return warehouse_client.get_fundamentals([code]).get(code)
+
+
 def company_detail(code: str) -> dict:
     """銘柄コード(4桁)の深掘り情報を組み立てる。"""
     m25 = load_meetings(2025)
@@ -148,9 +165,20 @@ def company_detail(code: str) -> dict:
         if parse_trend_points(h["trend"])
     }
 
+    # 外部リンク用: EDINETコード(IRBANKの大量保有ページ)と書類ID(臨時報告書ページ)
+    edinet_code = ""
+    for m in (m26.get(code), m25.get(code)):
+        if m and m.get("edinet_code"):
+            edinet_code = m["edinet_code"]
+            break
+
     return {
         "code": code,
         "name": name,
+        "fund": load_fundamentals(code),
+        "edinet_code": edinet_code,
+        "doc_id_2026": (m26.get(code) or {}).get("doc_id", ""),
+        "doc_id_2025": (m25.get(code) or {}).get("doc_id", ""),
         "trigger_curr": t_curr.get(code),
         "trigger_prev": t_prev.get(code),
         "proposals_2025": proposals_table(m25.get(code)),
