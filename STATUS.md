@@ -10,7 +10,11 @@
   配信元＝`docs/index.html`（`publish.py` が `output/dashboard_2026.html` から複製）。
   リポジトリ＝ https://github.com/shell0423/sokai-agenda （public・56ファイル/1MB）。
   ※ Cloud 対応コードは残してあるので、対話機能ごと公開したくなったら share.streamlit.io に登録するだけ。
-- **未了: launchd `com.sokai.refresh` は未ロード**（日次自動更新はまだ動いていない）。
+- **日次自動更新 稼働中**: launchd `com.sokai.refresh`（毎日06:00 JST）→
+  `publish.py --fast` → 倉庫から株価/PER/PBR取り直し → docs/更新 → 秘密スキャン → push。
+  **EDINET再スキャン(40分〜2時間)は日次では回さない**（総会は年1回。株価だけ毎日動くため）。
+  総会後は手動で `.venv/bin/python scripts/publish.py`（--fast なし＝フル更新）。
+  ログ＝`output/logs/publish.log`。
 
 ## 以前の状態 (2026-07-12)
 
@@ -50,7 +54,9 @@
 
 ## 次の一手
 
-- [ ] **7/30 アインHD(9627)総会後にフル更新**（Oasis 17.7%買い増し中の抗争が2026トリガー入りする見込み）
+- [ ] **7/30 アインHD(9627)総会後にフル更新** — `.venv/bin/python scripts/publish.py`
+      （`--fast` を付けない＝EDINET再スキャン込み・40分〜2時間。日次の軽量更新では総会データは増えない）。
+      Oasis 17.7%買い増し中の抗争が2026トリガー入りする見込み
 - [ ] 2027年シーズン: compare_triggers等は `--years 2026,2027` で流用可
 - [ ] （任意）実戦リストのDiscord/LINE通知連携
 

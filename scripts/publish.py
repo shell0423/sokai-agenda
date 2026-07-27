@@ -1,12 +1,20 @@
-"""日次公開: full_update → 秘密情報スキャン → 軽量派生物を commit & push。
+"""日次公開: 再生成 → docs/更新 → 秘密情報スキャン → commit & push。
 
 launchd (com.sokai.refresh) から毎日 06:00 JST に呼び出される。boutetsuya-stocks の
 publish.py と同じ思想で、公開前に秘密情報の混入を検査してから push する。
 
+再生成の重さは3段階:
+  --fast      src.jobs fast のみ（数秒〜1分）。キャッシュから再計算し、
+              株価/PER/PBR を倉庫から取り直す。**日次運用はこれ**
+              （総会データは年1回の季節データなので毎日EDINETを舐める意味が薄い）。
+  (既定)      full_update.sh（EDINET全再スキャン・40分〜2時間）。総会シーズン用。
+  --skip-full 再生成なし。既存ファイルをそのまま公開。
+
 使い方:
-  .venv/bin/python scripts/publish.py                 # 通常運用（full_update → push）
+  .venv/bin/python scripts/publish.py --fast          # 日次運用（launchd はこれを呼ぶ）
+  .venv/bin/python scripts/publish.py                 # フル更新つき（総会後に手動で）
   .venv/bin/python scripts/publish.py --dry-run       # push しない疎通確認
-  .venv/bin/python scripts/publish.py --skip-full     # full_update をスキップし現状のファイルを push
+  .venv/bin/python scripts/publish.py --skip-full     # 再生成せず現状のファイルを push
   .venv/bin/python scripts/publish.py --message "..." # commit message を上書き
 """
 from __future__ import annotations
@@ -159,20 +167,40 @@ def _git_has_staged_changes() -> bool:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="日次公開: full_update → scan → push")
+    ap = argparse.ArgumentParser(
+        description="日次公開: 再生成 → docs/更新 → 秘密スキャン → push")
     ap.add_argument("--dry-run", action="store_true",
                     help="scan と git add まで実行し、commit/push はしない")
-    ap.add_argument("--skip-full", action="store_true",
-                    help="full_update.sh をスキップして現状ファイルだけを公開")
+    mode = ap.add_mutually_exclusive_group()
+    mode.add_argument("--fast", action="store_true",
+                      help="full_update.sh の代わりに src.jobs fast を実行"
+                           "（数秒〜1分・株価/PER/PBR を更新）。日次運用向け")
+    mode.add_argument("--skip-full", action="store_true",
+                      help="再生成せず現状ファイルだけを公開")
     ap.add_argument("-m", "--message", type=str, default="",
                     help="commit message（既定: 'daily: YYYY-MM-DD refresh'）")
     args = ap.parse_args()
 
     _log("=" * 50)
-    _log(f"publish 開始 (dry_run={args.dry_run}, skip_full={args.skip_full})")
+    _log(f"publish 開始 (dry_run={args.dry_run}, fast={args.fast}, "
+         f"skip_full={args.skip_full})")
 
-    # 1) full_update.sh でデータを再生成
-    if not args.skip_full:
+    # 1) データを再生成（--fast=軽量 / 既定=フル / --skip-full=なし）
+    if args.fast:
+        _log("--- [1/5] 高速再生成 (src.jobs fast) ---")
+        proc = subprocess.run(
+            [sys.executable, "-m", "src.jobs", "fast"],
+            cwd=str(PROJECT_ROOT), text=True, capture_output=True,
+        )
+        for line in (proc.stdout or "").splitlines():
+            _log("  " + line)
+        if proc.returncode != 0:
+            _log(f"❌ src.jobs fast 失敗 (exit {proc.returncode}). push 中止")
+            if proc.stderr:
+                _log("STDERR tail: " + "\n".join(proc.stderr.splitlines()[-20:]))
+            return proc.returncode
+        _log("✅ 高速再生成 完了")
+    elif not args.skip_full:
         if not FULL_UPDATE_SH.exists():
             _log(f"❌ {FULL_UPDATE_SH} が見つかりません")
             return 1

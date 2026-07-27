@@ -414,26 +414,39 @@ boutetsuya-stocks と同じ思想で、Mac ローカルの launchd が日次で�
    │
    └─→ launchd (com.sokai.refresh)
          │
-         └─→ .venv/bin/python scripts/publish.py
+         └─→ .venv/bin/python scripts/publish.py --fast
                │
-               ├─ [1/4] scripts/full_update.sh
-               │     ├─ src.main --trend --years 2025,2026 --skip-holdings
-               │     ├─ search_trigger_holdings.py
-               │     └─ src.jobs fast
+               ├─ [1/5] src.jobs fast（数秒〜1分・通信なし）
+               │     compare_triggers×2 → 差分/実戦リスト
+               │     → **株価/PER/PBR を倉庫から取り直し** → dashboard HTML
                │
-               ├─ [2/4] 秘密情報スキャン（webhook URL/APIキー混入検査）
+               ├─ [2/5] docs/index.html を更新（GitHub Pages の配信元）
+               │
+               ├─ [3/5] 秘密情報スキャン（webhook URL/APIキー混入検査）
                │     公開対象ファイル群を正規表現で走査。ヒット時は push 中止。
                │
-               ├─ [3/4] git add（.gitignore 白リスト分のみ）
-               │     output/derived/, output/watchlist_*.csv,
+               ├─ [4/5] git add（.gitignore 白リスト分のみ）
+               │     docs/, output/derived/, output/watchlist_*.csv,
                │     output/trigger_holdings_summary.csv,
                │     output/trigger_analysis_*.md, output/dashboard_*.html,
                │     output/diff_*.md, data/*.json
                │
-               └─ [4/4] git commit -m "daily: YYYY-MM-DD refresh" && git push origin main
+               └─ [5/5] git commit -m "daily: YYYY-MM-DD refresh" && git push origin main
                      ↓
-                Streamlit Cloud が push を検知し auto-deploy
+                GitHub Pages が push を検知して再ビルド（1〜2分で反映）
 ```
+
+### 日次は「軽量」・EDINET再スキャンは季節作業
+
+株主総会の議決結果は**年1回**しか増えないので、EDINET の全再スキャン（40分〜2時間）を
+毎日回す意味はない。一方 **株価・PER・PBR は毎日動く**ので、日次は倉庫を読むだけの
+`--fast`（数秒〜1分）で回す。
+
+| モード | 中身 | 所要 | いつ |
+|---|---|---|---|
+| `publish.py --fast` | `src.jobs fast`（キャッシュ再計算＋倉庫からPER/PBR） | 数秒〜1分 | **毎日06:00・launchd** |
+| `publish.py` | `full_update.sh`（EDINET全再スキャン） | 40分〜2時間 | **総会後に手動**（例: 7/30 アインHD総会後） |
+| `publish.py --skip-full` | 再生成なし・現状ファイルを公開 | 数秒 | 疎通確認用 |
 
 ### launchd の on/off 手順
 
@@ -470,9 +483,10 @@ launchctl load ~/Library/LaunchAgents/com.sokai.refresh.plist
 
 ```bash
 cd ~/Claude/株主総会議案分析
-.venv/bin/python scripts/publish.py --dry-run   # scan と git add まで、push はしない
-.venv/bin/python scripts/publish.py --skip-full # full_update をスキップして現状ファイルだけ公開
-.venv/bin/python scripts/publish.py             # 本番運用と同じ挙動
+.venv/bin/python scripts/publish.py --fast --dry-run  # 日次と同じ再生成、push はしない
+.venv/bin/python scripts/publish.py --skip-full       # 再生成せず現状ファイルだけ公開
+.venv/bin/python scripts/publish.py --fast            # 日次運用と同じ挙動（launchd と同一）
+.venv/bin/python scripts/publish.py                   # フル更新つき（総会後に手動で）
 ```
 
 ### ログの見方
