@@ -269,11 +269,13 @@ def build_all(
     fund_asof = _attach_fundamentals(kept + excluded)
 
     # スクリーニングの流れ(漏斗)の各段の社数。使い方タブで表示する。
+    # 条件Cは notes_2026.json の C_override 補正を適用した数を出す
+    # (全トリガー表・実戦リストは補正後で数えているので、ここだけ生値だと食い違う)。
     funnel = {
         "meetings": _count_meetings(2026),          # ① 総会データを取得した全社
         "condA": sum(1 for c in s_curr if t_curr[c]["A"]),
         "condB": sum(1 for c in s_curr if t_curr[c]["B"]),
-        "condC": sum(1 for c in s_curr if t_curr[c]["C"]),
+        "condC": sum(1 for c in s_curr if rejected_flag(c)),
         "trigger": len(s_curr),                     # ② 3条件トリガー(和集合)
         "activist_pool": len(kept) + len(excluded), # ③ アクティビストが筆頭の社
         "excluded": len(excluded),                  # 除外(パッシブ/縮小/極小/撤退)
