@@ -2,7 +2,17 @@
 
 > このプロジェクトを触る前にまずここを読む。詳細な使い方は README.md。
 
-## 今どうなっているか (2026-07-12)
+## 今どうなっているか (2026-07-27)
+
+- **公開済み: https://shell0423.github.io/sokai-agenda/ （GitHub Pages）**。
+  某哲也(boutetsuya-stocks)と同じ「完成HTML1枚を静的配信」方式を採用し、
+  **Streamlit Cloud は使わない**（Python実行環境が要らないため）。
+  配信元＝`docs/index.html`（`publish.py` が `output/dashboard_2026.html` から複製）。
+  リポジトリ＝ https://github.com/shell0423/sokai-agenda （public・56ファイル/1MB）。
+  ※ Cloud 対応コードは残してあるので、対話機能ごと公開したくなったら share.streamlit.io に登録するだけ。
+- **未了: launchd `com.sokai.refresh` は未ロード**（日次自動更新はまだ動いていない）。
+
+## 以前の状態 (2026-07-12)
 
 - **Streamlitアプリ完成**: `⁠.venv/bin/streamlit run app.py` → http://localhost:8501
   - 実戦リスト(61社 A28/B15/C18) / 全トリガー(268社) / 卒業・決着 / 銘柄検索 の4タブ
