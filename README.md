@@ -12,12 +12,20 @@
 
 ## アプリ（Streamlit）
 
-**`起動.command` をダブルクリック**すると起動し、ブラウザ（http://localhost:8501）が開く。
+**`起動.command` をダブルクリック**すると起動し、ブラウザ（http://localhost:8701）が開く。
 停止は開いたターミナルウィンドウで `Ctrl+C`。ターミナルから起動する場合は:
 
 ```bash
-.venv/bin/streamlit run app.py    # → http://localhost:8501
+.venv/bin/streamlit run app.py --server.port 8701    # → http://localhost:8701
 ```
+
+> **⚠️ ポート 8501 を使わないこと。** 8501 は **kabusoku**（`~/Desktop/株関係/kabusoku.app`）
+> の番号。kabusoku.app は「:8501 が応答したらブラウザを開くだけ」の作りなので、
+> 本アプリが 8501 を掴んでいると **kabusoku を開いたつもりで本アプリが表示される**。
+> 8501/8502 は streamlit の自動採番範囲でもあるため、本アプリは **8701** を使う。
+>
+> 既存の割り当て: 8000=maps ／ 8088=x-archive ／ 8099=ニュース収集 ／
+> 8501=kabusoku ／ 8601=kensho ／ **8701=本アプリ**
 
 - **実戦リスト / 全トリガー / 卒業・決着 / 銘柄検索** の4タブ。行クリックで銘柄詳細
   （議案別賛成率 2025 vs 2026・大量保有タイムライン＋チャート・トリガー該当理由）
