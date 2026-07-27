@@ -109,13 +109,23 @@ def generate_dashboard(out_path: Path | None = None) -> Path:
     today = date.today().isoformat()
     fund_asof = derived.get("fundamentals_asof") or ""
 
+    # Tierごとのブロック。data-tier でJSのフィルタ対象にする（topix-review と同方式）。
     wl_sections = ""
     for t in "123":
         label, cond = TIER_META[t]
-        wl_sections += f"""<div class="tierhead"><span class="tbadge b{t}">Tier {t}</span> {label} <span class="tsub">— {cond} ／ {counts['t' + t]}社</span></div>
+        wl_sections += f"""<section class="tierblock" data-tier="{t}">
+<div class="tierhead"><span class="tbadge b{t}">Tier {t}</span> {label} <span class="tsub">— {cond} ／ {counts['t' + t]}社</span></div>
 <div class="tblwrap"><table class="wl">
 <thead><tr><th>コード</th><th>企業</th><th>アクティビスト</th><th>保有</th><th>推移Δ</th><th>否決</th><th>株価</th><th>PER</th><th>PBR</th><th>メモ</th></tr></thead>
-<tbody>{_wl_rows(kept, t)}</tbody></table></div>"""
+<tbody>{_wl_rows(kept, t)}</tbody></table></div></section>"""
+
+    tier_tabs = (
+        f'<button class="tab on" data-tier="all">全て {counts["kept"]}社</button>'
+        + "".join(
+            f'<button class="tab" data-tier="{t}">Tier {t} {counts["t" + t]}社</button>'
+            for t in "123"
+        )
+    )
 
     grad_rows = "\n".join(
         f'<tr><td class="code">{_esc(g["code"])}</td>'
@@ -175,6 +185,17 @@ tr:last-child td{{border-bottom:none}}
 .note b{{color:var(--ink)}}
 .foot{{color:var(--sub);font-size:12px;margin-top:30px;border-top:1px solid var(--line);padding-top:14px}}
 .toggle{{float:right;font-size:12px;color:var(--sub);cursor:pointer;border:1px solid var(--line);border-radius:6px;padding:3px 10px;background:var(--card)}}
+/* ページ切替タブ（topix-review と同方式: .nav button[data-page] → .page.on） */
+.nav{{display:flex;gap:8px;flex-wrap:wrap;margin:22px 0 0;border-bottom:2px solid var(--line);padding-bottom:10px}}
+.nav button{{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:7px 14px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit}}
+.nav button:hover{{border-color:var(--accent)}}
+.nav button.on{{background:var(--accent);color:#fff;border-color:var(--accent)}}
+.page{{display:none}}.page.on{{display:block}}
+/* Tier絞り込みチップ */
+.tabs{{display:flex;gap:6px;flex-wrap:wrap;margin:16px 0 2px}}
+.tab{{border:1px solid var(--line);background:var(--card);color:var(--sub);border-radius:6px;padding:4px 12px;font-size:12.5px;cursor:pointer;font-family:inherit}}
+.tab:hover{{border-color:var(--accent)}}
+.tab.on{{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}}
 </style></head><body><div class="wrap">
 <button class="toggle" onclick="var r=document.documentElement;r.dataset.theme=(r.dataset.theme==='dark'?'light':'dark')">◐ テーマ</button>
 <h1>株主総会 アクティビスト実戦リスト 2026</h1>
@@ -186,24 +207,61 @@ tr:last-child td{{border-bottom:none}}
 <div class="kpi"><div class="v g">{len(grads['graduations'])}</div><div class="l">去年の激戦→決着</div></div>
 </div>
 
-<h2>① 実戦ウォッチリスト（現在も張れる {counts['kept']}社）</h2>
-<div class="note">Tierは <b>保有比率 × 買い増し × 否決/継続の強度</b> で機械分類。<span class="chip seg-c">継続</span>=昨年から継続 <span class="chip seg-n">新規</span>=2026初トリガー。Δは2024→2026の保有推移。<b>企業名クリックで株探</b>のその銘柄ページを開きます。株価/PER/PBR は warehouse mart_latest{" (" + fund_asof + " 時点)" if fund_asof else ""}。</div>
-{wl_sections}
+<nav class="nav">
+<button class="on" data-page="wl">🎯 実戦リスト</button>
+<button data-page="grad">🎓 卒業・決着</button>
+<button data-page="note">⚠️ 注意点</button>
+</nav>
 
-<h2>② 去年の激戦は「決着」した（卒業＝リストから外れた理由）</h2>
+<div class="page on" id="page-wl">
+<h2>実戦ウォッチリスト（現在も張れる {counts['kept']}社）</h2>
+<div class="note">Tierは <b>保有比率 × 買い増し × 否決/継続の強度</b> で機械分類。<span class="chip seg-c">継続</span>=昨年から継続 <span class="chip seg-n">新規</span>=2026初トリガー。Δは2024→2026の保有推移。<b>企業名クリックで株探</b>のその銘柄ページを開きます。株価/PER/PBR は warehouse mart_latest{" (" + fund_asof + " 時点)" if fund_asof else ""}。</div>
+<div class="tabs">{tier_tabs}</div>
+{wl_sections}
+</div>
+
+<div class="page" id="page-grad">
+<h2>去年の激戦は「決着」した（卒業＝リストから外れた理由）</h2>
 <div class="note">去年のTier1級は沈静化ではなく<b>資本イベントで決着</b>。<span class="gchip pv">非公開化系</span>は投資対象から消滅、<span class="gchip win">アクティビスト勝利</span>は既に経営権交代済み。一次情報(EDINET/kessanai/報道)で確認。</div>
 <div class="tblwrap"><table><thead><tr><th>コード</th><th>企業</th><th>決着の型</th><th>2026に起きたこと</th></tr></thead><tbody>
 {grad_rows}
 </tbody></table></div>
 {exceptions}
+</div>
 
-<h2>③ 注意点（機械処理の癖・検証済み）</h2>
+<div class="page" id="page-note">
+<h2>注意点（機械処理の癖・検証済み）</h2>
 <div class="note">{caveat_html}<br>・最終判断は各社の一次情報（臨時報告書・大量保有報告書）で。</div>
-<div class="note"><b>除外した{counts['excluded']}社</b>（参考）：{exl}</div>
+<div class="note"><b>実戦リストから除外した{counts['excluded']}社</b>（参考）：{exl}</div>
+</div>
 
 <div class="foot">出典: EDINET臨時報告書(議決権行使結果)・大量保有報告書／株価・PER・PBR は warehouse(J-Quants/EDINET)／kessanai／報道。<br>
 ※本ページは個人的な記録・学習目的の参考情報であり、<b>投資勧誘・投資助言ではありません</b>。機械抽出のため誤検出を含みます。最終判断は必ず一次情報（臨時報告書・大量保有報告書の原本）でご確認ください。</div>
-</div></body></html>"""
+</div>
+<script>
+// ページ切替（実戦リスト / 卒業・決着 / 注意点）
+document.querySelectorAll(".nav button").forEach(function (b) {{
+  b.onclick = function () {{
+    document.querySelectorAll(".nav button").forEach(function (x) {{ x.classList.remove("on"); }});
+    document.querySelectorAll(".page").forEach(function (x) {{ x.classList.remove("on"); }});
+    b.classList.add("on");
+    document.getElementById("page-" + b.dataset.page).classList.add("on");
+    window.scrollTo({{ top: 0, behavior: "smooth" }});
+  }};
+}});
+// Tier絞り込み（全て / Tier1 / Tier2 / Tier3）
+document.querySelectorAll(".tab").forEach(function (b) {{
+  b.onclick = function () {{
+    document.querySelectorAll(".tab").forEach(function (x) {{ x.classList.remove("on"); }});
+    b.classList.add("on");
+    var t = b.dataset.tier;
+    document.querySelectorAll(".tierblock").forEach(function (s) {{
+      s.style.display = (t === "all" || s.dataset.tier === t) ? "" : "none";
+    }});
+  }};
+}});
+</script>
+</body></html>"""
 
     out_path = out_path or OUTPUT_DIR / "dashboard_2026.html"
     out_path.write_text(doc, encoding="utf-8")
