@@ -11,7 +11,7 @@ from datetime import date
 from pathlib import Path
 
 from src.analysis_diff import DERIVED_DIR, OUTPUT_DIR, PROJECT_ROOT
-from src.app_data import load_graduations
+from src.app_data import load_graduations, load_trigger_table
 from src.detail_data import build_details
 
 FUND_SHORT = {
@@ -224,6 +224,60 @@ document.getElementById("ov").onclick = function (e) {
 document.addEventListener("keydown", function (e) {
   if (e.key === "Escape") closeDetail();
 });
+
+// ---- ページ切替（実戦リスト / 全トリガー / 卒業・決着 / 注意点）----
+document.querySelectorAll(".nav button").forEach(function (b) {
+  b.onclick = function () {
+    document.querySelectorAll(".nav button").forEach(function (x) { x.classList.remove("on"); });
+    document.querySelectorAll(".page").forEach(function (x) { x.classList.remove("on"); });
+    b.classList.add("on");
+    document.getElementById("page-" + b.dataset.page).classList.add("on");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+});
+
+// ---- チップ（同じ .tabs の中だけ排他にする。Tier用とA/B/C用が別々にあるため）----
+function chipGroup(sel, apply) {
+  var chips = document.querySelectorAll(sel);
+  chips.forEach(function (b) {
+    b.onclick = function () {
+      chips.forEach(function (x) { x.classList.remove("on"); });
+      b.classList.add("on");
+      apply();
+    };
+  });
+}
+
+// Tier絞り込み（実戦リスト）
+chipGroup("#page-wl .tab", function () {
+  var t = document.querySelector("#page-wl .tab.on").dataset.tier;
+  document.querySelectorAll(".tierblock").forEach(function (s) {
+    s.style.display = (t === "all" || s.dataset.tier === t) ? "" : "none";
+  });
+});
+
+// A/B/C絞り込み ＋ コード/社名検索（全トリガー）
+function filterTriggers() {
+  var chip = document.querySelector("#page-trig .tab.on");
+  var cond = chip ? chip.dataset.cond : "all";
+  var qbox = document.getElementById("q");
+  var q = qbox ? qbox.value.trim().toLowerCase() : "";
+  var shown = 0;
+  document.querySelectorAll("#trigbody tr").forEach(function (tr) {
+    var okCond = cond === "all" || tr.dataset[cond] === "1";
+    var okQ = !q || (tr.dataset.q || "").toLowerCase().indexOf(q) >= 0;
+    var show = okCond && okQ;
+    tr.style.display = show ? "" : "none";
+    if (show) shown++;
+  });
+  var out = document.getElementById("trigcount");
+  if (out) out.textContent = shown + "社を表示" + (cond === "all" && !q ? "" : "（絞り込み中）");
+}
+chipGroup("#page-trig .tab", filterTriggers);
+if (document.getElementById("q")) {
+  document.getElementById("q").oninput = filterTriggers;
+}
+filterTriggers();
 """
 
 
@@ -308,8 +362,17 @@ def generate_dashboard(out_path: Path | None = None) -> Path:
     fund_asof = derived.get("fundamentals_asof") or ""
 
     # 行クリックで開く銘柄詳細（議案別賛成率・大量保有の推移・トリガー理由）。
-    # 対象は実戦リスト＋除外のみ（全社だと総会キャッシュ13MBを抱えることになる）。
-    details = build_details([r["code"] for r in kept + excluded])
+    # 対象は 2026 と 2025 のトリガー該当社すべて（実戦リスト・除外・卒業を含む）。
+    # 抽出後は 491社で 965KB・gzip後 157KB なので全部入れてよい
+    # （総会キャッシュ原本13MBを抱えるわけではない）。
+    trig_rows = load_trigger_table("2526")
+    grad_codes = sorted(derived.get("grad_names", {}).keys())
+    detail_codes = list(dict.fromkeys(
+        [r["code"] for r in kept + excluded]
+        + [r["証券コード"] for r in trig_rows]
+        + grad_codes
+    ))
+    details = build_details(detail_codes)
     for r in kept + excluded:
         d = details.get(r["code"])
         if d is not None:
@@ -336,6 +399,22 @@ def generate_dashboard(out_path: Path | None = None) -> Path:
 <thead><tr><th>コード</th><th>企業</th><th>アクティビスト</th><th>保有</th><th>推移Δ</th><th>否決</th><th>株価</th><th>PER</th><th>PBR</th><th>メモ</th></tr></thead>
 <tbody>{_wl_rows(kept, t)}</tbody></table></div></section>"""
 
+    # 全トリガー表（2026該当の全社）。data-* をJSの絞り込み・検索キーにする。
+    trig_html = "\n".join(
+        f'<tr class="rowlink" data-code="{_esc(r["証券コード"])}"'
+        f' data-a="{1 if r["A:賛成率低下"] else 0}"'
+        f' data-b="{1 if r["B:新規株主提案"] else 0}"'
+        f' data-c="{1 if r["C:否決"] else 0}"'
+        f' data-q="{_esc(r["証券コード"] + " " + _coname(r["企業名"]))}">'
+        f'<td class="code">{_esc(r["証券コード"])}</td>'
+        f'<td class="nm">{_kabutan(r["証券コード"], _coname(r["企業名"]))}</td>'
+        f'<td class="ctr">{"○" if r["A:賛成率低下"] else ""}</td>'
+        f'<td class="ctr">{"○" if r["B:新規株主提案"] else ""}</td>'
+        f'<td class="ctr">{"○" if r["C:否決"] else ""}</td>'
+        f'<td class="th">{_esc(r["補正"])}</td></tr>'
+        for r in trig_rows
+    )
+
     tier_tabs = (
         f'<button class="tab on" data-tier="all">全て {counts["kept"]}社</button>'
         + "".join(
@@ -345,8 +424,9 @@ def generate_dashboard(out_path: Path | None = None) -> Path:
     )
 
     grad_rows = "\n".join(
-        f'<tr><td class="code">{_esc(g["code"])}</td>'
-        f'<td class="nm">{_esc(_coname(g["name"]))}</td>'
+        f'<tr class="rowlink" data-code="{_esc(g["code"])}" title="クリックで銘柄詳細">'
+        f'<td class="code">{_esc(g["code"])}</td>'
+        f'<td class="nm">{_kabutan(g["code"], _coname(g["name"]))}</td>'
         f'<td><span class="gchip {g["type_class"]}">{_esc(g["type"])}</span></td>'
         f'<td class="th">{_esc(g["detail"])}</td></tr>'
         for g in grads["graduations"]
@@ -439,6 +519,9 @@ tr.rowlink:hover td{{background:color-mix(in srgb,var(--accent) 7%,transparent)}
 .modal td,.modal th{{padding:6px 9px}}
 .reason{{font-size:12.5px;color:var(--sub);line-height:1.7}}
 .reason b{{color:var(--ink)}}
+.ctr{{text-align:center}}
+.search{{width:100%;box-sizing:border-box;margin:10px 0 12px;padding:9px 13px;font-size:14px;font-family:inherit;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:9px}}
+.search:focus{{outline:none;border-color:var(--accent)}}
 </style></head><body><div class="wrap">
 <button class="toggle" onclick="var r=document.documentElement;r.dataset.theme=(r.dataset.theme==='dark'?'light':'dark')">◐ テーマ</button>
 <h1>株主総会 アクティビスト実戦リスト 2026</h1>
@@ -452,6 +535,7 @@ tr.rowlink:hover td{{background:color-mix(in srgb,var(--accent) 7%,transparent)}
 
 <nav class="nav">
 <button class="on" data-page="wl">🎯 実戦リスト</button>
+<button data-page="trig">📋 全トリガー({len(trig_rows)})</button>
 <button data-page="grad">🎓 卒業・決着</button>
 <button data-page="note">⚠️ 注意点</button>
 </nav>
@@ -461,6 +545,22 @@ tr.rowlink:hover td{{background:color-mix(in srgb,var(--accent) 7%,transparent)}
 <div class="note">Tierは <b>保有比率 × 買い増し × 否決/継続の強度</b> で機械分類。<span class="chip seg-c">継続</span>=昨年から継続 <span class="chip seg-n">新規</span>=2026初トリガー。Δは2024→2026の保有推移。<b>企業名クリックで株探</b>のその銘柄ページを開きます。株価/PER/PBR は warehouse mart_latest{" (" + fund_asof + " 時点)" if fund_asof else ""}。</div>
 <div class="tabs">{tier_tabs}</div>
 {wl_sections}
+</div>
+
+<div class="page" id="page-trig">
+<h2>全トリガー {len(trig_rows)}社（2025→2026）</h2>
+<div class="note">3条件のどれかに当たった会社の<b>全リスト</b>（アクティビストがいない会社も含む）。<b>行クリックで銘柄詳細</b>、企業名クリックで株探。<br>
+<b>A</b>=会社提案の賛成率が10pt以上ダウン ／ <b>B</b>=前年になかった株主提案が出た ／ <b>C</b>=会社提案が否決（賛成率50%未満）。和集合なので内訳の合計＝社数にはなりません。</div>
+<div class="tabs">
+<button class="tab on" data-cond="all">全て {len(trig_rows)}社</button>
+<button class="tab" data-cond="a">A 賛成率低下</button>
+<button class="tab" data-cond="b">B 新規株主提案</button>
+<button class="tab" data-cond="c">C 否決</button>
+</div>
+<input class="search" id="q" type="search" placeholder="🔍 コード または 会社名 で絞り込み（例: 9627 / アイン）" autocomplete="off">
+<div class="tblwrap"><table><thead><tr><th>コード</th><th>企業</th><th class="ctr">A</th><th class="ctr">B</th><th class="ctr">C</th><th>補正</th></tr></thead>
+<tbody id="trigbody">{trig_html}</tbody></table></div>
+<div class="reason" id="trigcount"></div>
 </div>
 
 <div class="page" id="page-grad">
@@ -487,27 +587,6 @@ tr.rowlink:hover td{{background:color-mix(in srgb,var(--accent) 7%,transparent)}
 var DETAILS = {details_json};
 </script>
 <script>
-// ページ切替（実戦リスト / 卒業・決着 / 注意点）
-document.querySelectorAll(".nav button").forEach(function (b) {{
-  b.onclick = function () {{
-    document.querySelectorAll(".nav button").forEach(function (x) {{ x.classList.remove("on"); }});
-    document.querySelectorAll(".page").forEach(function (x) {{ x.classList.remove("on"); }});
-    b.classList.add("on");
-    document.getElementById("page-" + b.dataset.page).classList.add("on");
-    window.scrollTo({{ top: 0, behavior: "smooth" }});
-  }};
-}});
-// Tier絞り込み（全て / Tier1 / Tier2 / Tier3）
-document.querySelectorAll(".tab").forEach(function (b) {{
-  b.onclick = function () {{
-    document.querySelectorAll(".tab").forEach(function (x) {{ x.classList.remove("on"); }});
-    b.classList.add("on");
-    var t = b.dataset.tier;
-    document.querySelectorAll(".tierblock").forEach(function (s) {{
-      s.style.display = (t === "all" || s.dataset.tier === t) ? "" : "none";
-    }});
-  }};
-}});
 {MODAL_JS}
 </script>
 </body></html>"""
