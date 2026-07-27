@@ -119,9 +119,71 @@ def _select_code_from(df: pd.DataFrame, event, code_col: str) -> None:
         st.session_state["selected_code"] = str(df.iloc[rows[0]][code_col])
 
 
+def _fmt(v, unit: str = "", digits: int = 2) -> str:
+    """数値を表示用に整形。None は「—」。"""
+    if v is None or v == "":
+        return "—"
+    try:
+        return f"{float(v):,.{digits}f}{unit}"
+    except (TypeError, ValueError):
+        return str(v)
+
+
+def external_links(d: dict) -> str:
+    """株探・IRBANK への外部リンクを markdown で返す。"""
+    code = d["code"]
+    links = [f"[📈 株探](https://kabutan.jp/stock/?code={code})"]
+    if d.get("edinet_code"):
+        links.append(
+            f"[🏦 IRBANK 大量保有](https://irbank.net/{d['edinet_code']}/share)")
+        if d.get("doc_id_2026"):
+            links.append(
+                f"[📄 2026臨時報告書](https://irbank.net/{d['edinet_code']}"
+                f"/ext?f={d['doc_id_2026']})")
+        if d.get("doc_id_2025"):
+            links.append(
+                f"[📄 2025臨時報告書](https://irbank.net/{d['edinet_code']}"
+                f"/ext?f={d['doc_id_2025']})")
+    return "　".join(links)
+
+
+def render_fundamentals(d: dict) -> None:
+    """株価・PER・PBR・配当利回り・ROE を表示する(倉庫 mart_latest 由来)。"""
+    f = d.get("fund")
+    if not f:
+        st.caption("💹 株価・PER・PBR: データなし"
+                   "（倉庫未接続、または配布スナップショットに含まれない銘柄）")
+        return
+    # metric は列幅が狭いと値が省略される(331.0円 → "331...")。
+    # 単位はラベル側に出し、値は桁を詰めて表示する。
+    price = f.get("price")
+    price_txt = _fmt(price, "", 0 if (price or 0) >= 100 else 1)
+    per_mark = "⚠" if f.get("per_outlier") else ""
+    pbr_mark = "⚠" if f.get("pbr_outlier") else ""
+    c = st.columns(5)
+    c[0].metric("株価(円)", price_txt)
+    c[1].metric("PER(倍)", _fmt(f.get("per"), "", 1) + per_mark)
+    c[2].metric("PBR(倍)", _fmt(f.get("pbr"), "", 2) + pbr_mark)
+    c[3].metric("配当利回り", _fmt(f.get("yield_pct"), "%", 2))
+    c[4].metric("ROE", _fmt(f.get("roe_pct"), "%", 1))
+    bits = [f"📅 {f.get('date') or '—'} 時点"]
+    if f.get("fy"):
+        bits.append(f"FY{f['fy']}実績")
+    if f.get("eps") is not None:
+        bits.append(f"EPS {_fmt(f['eps'])}")
+    if f.get("bps") is not None:
+        bits.append(f"BPS {_fmt(f['bps'])}")
+    if f.get("dps") is not None:
+        bits.append(f"DPS {_fmt(f['dps'])}")
+    warn = " ／ ⚠は倉庫の外れ値フラグ" if (per_mark or pbr_mark) else ""
+    st.caption("　".join(bits) + f"（出典: warehouse mart_latest）{warn}")
+
+
 def render_detail(code: str) -> None:
     d = company_detail(code)
     st.subheader(f"🔍 {code} {d['name'] or '(名称不明)'}")
+    st.markdown(external_links(d))
+    render_fundamentals(d)
 
     # トリガープロファイル
     cols = st.columns(4)
@@ -435,6 +497,13 @@ with tab_wl:
             "Tier", ["1", "2", "3"], default=["1", "2", "3"],
             format_func=lambda t: TIER_LABEL[t])
         view = wl[wl["tier"].isin(tier_sel)]
+
+        def _f(key: str):
+            """fund列(dict または None)から指標を取り出す。旧JSONなら全てNone。"""
+            if "fund" not in view.columns:
+                return [None] * len(view)
+            return view["fund"].map(lambda f: (f or {}).get(key))
+
         disp = pd.DataFrame({
             "Tier": view["tier"],
             "区分": view["seg"],
@@ -444,6 +513,10 @@ with tab_wl:
             "保有%": view["ratio"],
             "Δpp": view["delta"],
             "否決": view["C"].map({True: "○", False: ""}),
+            "株価": _f("price"),
+            "PER": _f("per"),
+            "PBR": _f("pbr"),
+            "利回り%": _f("yield_pct"),
             "条件": view["p_curr"],
             "メモ": view["thesis"],
         }).reset_index(drop=True)
@@ -456,8 +529,11 @@ with tab_wl:
             height=min(38 * len(disp) + 40, 560),
         )
         _select_code_from(disp, ev, "コード")
-        st.caption("行をクリックすると下部に銘柄詳細を表示。"
-                   f"除外{counts['excluded']}社(撤退/パッシブ/極小)は「卒業・決着」タブ末尾に記載")
+        _asof = derived.get("fundamentals_asof")
+        st.caption("行をクリックすると下部に銘柄詳細を表示（株探・IRBANKへのリンク付き）。"
+                   f"除外{counts['excluded']}社(撤退/パッシブ/極小)は「卒業・決着」タブ末尾に記載"
+                   + (f" ／ 株価・PER・PBR は {_asof} 時点(warehouse mart_latest)"
+                      if _asof else ""))
 
 # --- 全トリガー ---
 with tab_trig:

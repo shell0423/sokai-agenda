@@ -49,11 +49,28 @@ def _fund(s: str | None) -> str:
     return _coname(s)[:14]
 
 
+def _kabutan(code: str, name: str) -> str:
+    """銘柄名を株探の銘柄ページへのリンクにする(某哲也サイトと同じ導線)。"""
+    return (f'<a class="klink" href="https://kabutan.jp/stock/?code={_esc(code)}" '
+            f'target="_blank" rel="noopener" title="株探で{_esc(name)}を開く">'
+            f'{_esc(name)}</a>')
+
+
+def _num_cell(v, unit: str = "", digits: int = 2) -> str:
+    if v is None or v == "":
+        return '<td class="num dim">—</td>'
+    try:
+        return f'<td class="num">{float(v):,.{digits}f}{unit}</td>'
+    except (TypeError, ValueError):
+        return f'<td class="num">{_esc(v)}</td>'
+
+
 def _wl_rows(kept: list[dict], tier: str) -> str:
     out = []
     for r in kept:
         if r["tier"] != tier:
             continue
+        f = r.get("fund") or {}
         try:
             dlnum = float(r["delta"]) if r["delta"] is not None else 0.0
         except (TypeError, ValueError):
@@ -69,11 +86,14 @@ def _wl_rows(kept: list[dict], tier: str) -> str:
         seg = f'<span class="chip {seg_cls}">{r["seg"]}</span>'
         out.append(
             f'<tr><td class="code">{_esc(r["code"])}</td>'
-            f'<td class="nm">{_esc(_coname(r["name"]))} {seg}</td>'
+            f'<td class="nm">{_kabutan(r["code"], _coname(r["name"]))} {seg}</td>'
             f'<td class="fund">{_esc(_fund(r["holder"]))}</td>'
             f'<td class="num">{_esc(r["ratio"])}%</td>'
             f'<td class="num">{darr}</td><td>{rej}</td>'
-            f'<td class="th">{_esc(r["thesis"])}</td></tr>'
+            + _num_cell(f.get("price"), "", 1)
+            + _num_cell(f.get("per"))
+            + _num_cell(f.get("pbr"))
+            + f'<td class="th">{_esc(r["thesis"])}</td></tr>'
         )
     return "\n".join(out)
 
@@ -87,13 +107,14 @@ def generate_dashboard(out_path: Path | None = None) -> Path:
     grads = load_graduations()
     caveats = derived.get("caveats", [])
     today = date.today().isoformat()
+    fund_asof = derived.get("fundamentals_asof") or ""
 
     wl_sections = ""
     for t in "123":
         label, cond = TIER_META[t]
         wl_sections += f"""<div class="tierhead"><span class="tbadge b{t}">Tier {t}</span> {label} <span class="tsub">— {cond} ／ {counts['t' + t]}社</span></div>
 <div class="tblwrap"><table class="wl">
-<thead><tr><th>コード</th><th>企業</th><th>アクティビスト</th><th>保有</th><th>推移Δ</th><th>否決</th><th>メモ</th></tr></thead>
+<thead><tr><th>コード</th><th>企業</th><th>アクティビスト</th><th>保有</th><th>推移Δ</th><th>否決</th><th>株価</th><th>PER</th><th>PBR</th><th>メモ</th></tr></thead>
 <tbody>{_wl_rows(kept, t)}</tbody></table></div>"""
 
     grad_rows = "\n".join(
@@ -139,6 +160,8 @@ td{{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}}
 tr:last-child td{{border-bottom:none}}
 .code{{font-variant-numeric:tabular-nums;color:var(--sub);font-weight:600;white-space:nowrap}}
 .nm{{font-weight:600;min-width:150px}}.fund{{color:var(--accent);font-weight:600;white-space:nowrap}}
+.klink{{color:var(--ink);text-decoration:none;border-bottom:1px dotted var(--accent)}}
+.klink:hover{{color:var(--accent)}}.num.dim{{color:var(--flat)}}
 .num{{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}}
 .up{{color:var(--up);font-weight:600}}.down{{color:var(--down);font-weight:600}}.flat{{color:var(--flat)}}
 .th{{color:var(--sub);font-size:12.5px}}
@@ -164,7 +187,7 @@ tr:last-child td{{border-bottom:none}}
 </div>
 
 <h2>① 実戦ウォッチリスト（現在も張れる {counts['kept']}社）</h2>
-<div class="note">Tierは <b>保有比率 × 買い増し × 否決/継続の強度</b> で機械分類。<span class="chip seg-c">継続</span>=昨年から継続 <span class="chip seg-n">新規</span>=2026初トリガー。Δは2024→2026の保有推移。</div>
+<div class="note">Tierは <b>保有比率 × 買い増し × 否決/継続の強度</b> で機械分類。<span class="chip seg-c">継続</span>=昨年から継続 <span class="chip seg-n">新規</span>=2026初トリガー。Δは2024→2026の保有推移。<b>企業名クリックで株探</b>のその銘柄ページを開きます。株価/PER/PBR は warehouse mart_latest{" (" + fund_asof + " 時点)" if fund_asof else ""}。</div>
 {wl_sections}
 
 <h2>② 去年の激戦は「決着」した（卒業＝リストから外れた理由）</h2>
