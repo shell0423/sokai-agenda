@@ -332,15 +332,37 @@ python fetch_holdings.py
 
 ---
 
-## Streamlit Cloud 公開版
+## 公開版（GitHub Pages・現行）
 
-同じコードを Streamlit Community Cloud にデプロイし、Mac ローカルの launchd が
-毎日データを再生成→ GitHub に push、Cloud 側が自動再デプロイして最新スナップショット
-を配信する構成。
+**公開 URL: https://shell0423.github.io/sokai-agenda/**
 
-- **公開 URL**: デプロイ後に確定（https://shell0423-sokai-agenda.streamlit.app 予定）
-- **更新頻度**: 毎日 06:00 JST（launchd → publish.py → GitHub → Streamlit Cloud）
+boutetsuya-stocks と同じ「**完成済みHTMLを1枚だけ静的配信する**」方式。
+`src/dashboard_gen.py` が生成した `output/dashboard_2026.html` を
+`publish.py` が `docs/index.html` へ複製し、GitHub Pages（main ブランチの `/docs`）が配信する。
+Python 実行環境は不要なので、Streamlit Cloud への登録も要らない。
+
 - **公開リポジトリ**: https://github.com/shell0423/sokai-agenda （public）
+- **更新**: launchd → `scripts/publish.py`（再生成 → docs/ 更新 → 秘密スキャン → push）
+- **公開されるもの**: 実戦リスト（Tier別・株価/PER/PBR・株探リンク）／卒業・決着／注意点
+- **公開されないもの**: Tier絞り込み・行クリック詳細・銘柄検索（＝Streamlit アプリ側の機能）
+
+### ローカルアプリ版との違い
+
+| | ローカル Streamlit | 公開ページ(GitHub Pages) |
+|---|---|---|
+| 実行 | Python が常駐 | 静的HTML（サーバー処理なし） |
+| Tier絞り込み・行クリック詳細・銘柄検索 | ✅ | ❌ |
+| 実戦リスト（Tier別・PER/PBR） | ✅ | ✅ |
+| 株探リンク | ✅ | ✅（企業名がリンク） |
+| 大量保有チャート・議案別賛成率 | ✅ | ❌ |
+
+## Streamlit Cloud 公開版（未使用・いつでも再開できる状態）
+
+対話機能ごと公開したくなった場合の選択肢。コード側の対応（`_is_cloud()` 判定・
+`.streamlit/config.toml`・`runtime.txt`・Secrets 手順）は実装済みで、
+https://share.streamlit.io/deploy でリポジトリを登録すれば動く。
+
+- **公開 URL**: 未デプロイ（https://shell0423-sokai-agenda.streamlit.app 予定）
 
 ### ローカル版と Cloud 版の機能差分
 
