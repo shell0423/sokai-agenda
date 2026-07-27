@@ -12,6 +12,9 @@
 
 ## アプリ（Streamlit）
 
+**`起動.command` をダブルクリック**すると起動し、ブラウザ（http://localhost:8501）が開く。
+停止は開いたターミナルウィンドウで `Ctrl+C`。ターミナルから起動する場合は:
+
 ```bash
 .venv/bin/streamlit run app.py    # → http://localhost:8501
 ```
