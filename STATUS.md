@@ -4,6 +4,12 @@
 
 ## 今どうなっているか (2026-07-27)
 
+- **公開ページに タブ／Tier絞り込み／行クリック銘柄詳細 を実装（2026-07-27）**。
+  静的HTMLでもJSでここまでできる（topix-review-public と同方式）。詳細モーダルは
+  議案別賛成率2025vs2026・大量保有チャート(lightweight-charts v4.2.3 を `assets/` に
+  vendor しインライン)・トリガー理由・株探/IRBANKリンク。埋め込みは実戦61社＋除外12社ぶんで
+  **ページ全体 約470KB**（全社ぶんだと総会キャッシュ13MBを抱えるため対象を絞っている）。
+  データ生成は `src/detail_data.py`。
 - **公開済み: https://shell0423.github.io/sokai-agenda/ （GitHub Pages）**。
   某哲也(boutetsuya-stocks)と同じ「完成HTML1枚を静的配信」方式を採用し、
   **Streamlit Cloud は使わない**（Python実行環境が要らないため）。
