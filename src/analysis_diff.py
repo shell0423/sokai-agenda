@@ -13,6 +13,7 @@ from __future__ import annotations
 import csv
 import json
 import re
+import html
 import unicodedata
 from collections import defaultdict
 from pathlib import Path
@@ -73,7 +74,7 @@ def _norm(s: str | None) -> str:
     EDINETの提出者名は「Ｂｅ　Ｂｒａｖｅ株式会社」等の全角表記が混在するため、
     表記ゆれをここで一括吸収する(場当たりの表記追加をしない)。
     """
-    return unicodedata.normalize("NFKC", s or "").lower()
+    return unicodedata.normalize("NFKC", html.unescape(s or "")).lower()
 
 
 def is_activist(holder_name: str | None) -> bool:
@@ -132,6 +133,20 @@ def parse_trend_points(s: str | None) -> list[tuple[str, float]]:
     ]
 
 
+def _to_float(v) -> float | None:
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _to_int(v) -> int | None:
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
 def load_holdings(path: Path | None = None) -> dict[str, list[dict]]:
     """trigger_holdings.csv → {code: [holder rows]}"""
     path = path or OUTPUT_DIR / "trigger_holdings.csv"
@@ -140,6 +155,10 @@ def load_holdings(path: Path | None = None) -> dict[str, list[dict]]:
         return by_code
     for h in _read_csv(path):
         first, last, delta = parse_trend(h["保有割合推移"])
+        # 倉庫版CSVのみ持つ列(旧CSVには無いので .get で欠損を許容する)
+        g_first, g_last, g_delta = parse_trend(h.get("グループ合算推移"))
+        group = _to_float(h.get("グループ合算(%)"))
+        joint = _to_int(h.get("共同保有者数"))
         by_code[h["証券コード"]].append({
             "holder": (h["保有者名"] or "").replace("　", " ").strip(),
             "ratio": last,
@@ -149,6 +168,17 @@ def load_holdings(path: Path | None = None) -> dict[str, list[dict]]:
             "delta": delta,
             "n_reports": h["報告書件数"],
             "activist": is_activist(h["保有者名"]),
+            # --- 共同保有(グループ)の実勢 ---
+            "group": group,
+            "joint": joint,
+            "group_trend": h.get("グループ合算推移", ""),
+            "group_first": g_first,
+            "group_delta": g_delta,
+            # 判定に使う「実効値」。共同保有ならグループ合算が実勢なのでそちらを採る。
+            # 個別値だけで見ると、3名で19.13%を持つグループの1人(1.57%)が
+            # 「保有極小」で落ちるなど、実勢と逆の判定になる。
+            "eff_ratio": (group if (joint or 1) > 1 and group is not None else last),
+            "eff_delta": (g_delta if (joint or 1) > 1 and g_delta is not None else delta),
         })
     return by_code
 
@@ -210,8 +240,14 @@ def build_all(
     thesis = notes.get("thesis", {})
 
     def top_activist(code: str) -> dict | None:
-        hs = [h for h in holdings.get(code, []) if h["activist"] and h["ratio"]]
-        hs.sort(key=lambda x: -(x["ratio"] or 0))
+        """筆頭アクティビストを**実効値(共同保有ならグループ合算)**で選ぶ。
+
+        個別値で選ぶと、同じグループの中で個別割合が最大の1名だけが代表になり、
+        グループ全体の圧力が過小に見える。
+        """
+        hs = [h for h in holdings.get(code, [])
+              if h["activist"] and (h.get("eff_ratio") or h["ratio"])]
+        hs.sort(key=lambda x: -(x.get("eff_ratio") or x["ratio"] or 0))
         return hs[0] if hs else None
 
     def rejected_flag(code: str) -> bool:
@@ -243,8 +279,12 @@ def build_all(
         r["thesis"] = thesis.get(r["code"], "")
         if r["code"] in corrections:
             r["correction"] = corrections[r["code"]].get("reason", "")
-        ratio = r["ratio"] or 0
-        delta = r["delta"] if r["delta"] is not None else 0
+        # 規模も増減も「実効値」で見る(共同保有ならグループ合算)。
+        ratio = r.get("eff_ratio") or r["ratio"] or 0
+        _d = r.get("eff_delta")
+        if _d is None:
+            _d = r["delta"]
+        delta = _d if _d is not None else 0
         holder = r["holder"]
         reason = None
         if any(_norm(p) in _norm(holder) for p in PASSIVE_HOLDERS):
@@ -355,10 +395,18 @@ def _base(code: str, t_curr: dict, ta: dict) -> dict:
         "name": v["name"],
         "p_curr": _profile(v),
         "holder": ta["holder"],
-        "ratio": ta["ratio"],
+        "ratio": ta["ratio"],          # 個別(表示用)
         "delta": ta["delta"],
         "trend": ta["trend"],
         "purpose": ta["purpose"],
+        # 共同保有の実勢。判定(_tier/除外)はこちらを使う。旧CSVでは None のまま
+        # 個別値にフォールバックするので、後方互換は保たれる。
+        "group": ta.get("group"),
+        "joint": ta.get("joint"),
+        "group_trend": ta.get("group_trend", ""),
+        "group_delta": ta.get("group_delta"),
+        "eff_ratio": ta.get("eff_ratio"),
+        "eff_delta": ta.get("eff_delta"),
     }
 
 
