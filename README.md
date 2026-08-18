@@ -33,7 +33,8 @@
   銘柄詳細には **株探・IRBANK（大量保有／臨時報告書）への外部リンク**付き
 - サイドバーのボタンで実行:
   **⚡高速再生成**（キャッシュから分析一式・数秒〜1分）／
-  **🔄フル更新**（EDINET再スキャン・バックグラウンド40分〜2時間）／
+  **🔄フル更新**（EDINET再スキャン・バックグラウンド40分〜2時間。
+  ※大量保有は倉庫参照に切替済みなので、通常は総会データの再取得時のみ）／
   **📡充足チェック**（臨時報告書の日次件数）
 
 ## 技術スタック
@@ -41,7 +42,9 @@
 - Python 3.11+
 - EDINET API（臨時報告書・大量保有報告書）
 - warehouse（`~/Claude/warehouse`）＝会社マスタ `wh_security`（社名補完）＋
-  現在ファンダ `mart_latest`（株価・PER・PBR・配当利回り・ROE）。いずれも read_only・即クローズ
+  現在ファンダ `mart_latest`（株価・PER・PBR・配当利回り・ROE）＋
+  **大量保有 `wh_shareholders`（2026-08-17 からこちらが正。共同保有者を1名1行で展開済み）**。
+  いずれも read_only・即クローズ
 - httpx / duckdb / pandas / openpyxl / streamlit
 
 ## 分析フロー（3段階の漏斗型）
@@ -166,6 +169,11 @@ python compare_triggers.py --csv -o out.csv  # 出力先を指定
 python compare_triggers.py --holding-threshold -15.0  # 閾値変更
 
 # トリガー企業の大量保有報告書を一括検索
+# 【推奨】倉庫(wh_shareholders)から生成。API不要・数秒
+.venv/bin/python scripts/build_trigger_holdings_wh.py
+.venv/bin/python scripts/build_trigger_holdings_wh.py --dry-run   # 統計のみ
+
+# 【旧・通常は使わない】EDINETを自前スキャン（40分〜2時間）
 python search_trigger_holdings.py       # EDINET全量スキャン → CSV出力
 python search_trigger_holdings.py --use-cache  # キャッシュ利用（API不要）
 
@@ -200,7 +208,8 @@ python fetch_holdings.py
 │   ├── test_trend_analyzer.py
 │   └── test_trend_cache.py
 ├── compare_triggers.py         # トリガー比較（旧ロジック vs 新ロジック）
-├── search_trigger_holdings.py  # トリガー企業の大量保有報告書一括検索
+├── scripts/build_trigger_holdings_wh.py  # 【推奨】倉庫から大量保有を生成（API不要）
+├── search_trigger_holdings.py  # 【旧】トリガー企業の大量保有報告書一括検索（EDINET直叩き）
 ├── check_activists.py          # アクティビスト判定スクリプト（単体実行用）
 ├── fetch_holdings.py           # 保有割合抽出スクリプト（単体実行用）
 ├── inspect_doc.py              # EDINET文書の中身確認用
@@ -257,7 +266,7 @@ python fetch_holdings.py
 
 ### trigger_holdings.csv
 
-トリガー企業の大量保有報告書・保有者別タイムライン。`search_trigger_holdings.py` で生成。
+トリガー企業の大量保有報告書・保有者別タイムライン。**`scripts/build_trigger_holdings_wh.py`（倉庫 `wh_shareholders` から生成・API不要）**。末尾3列 `グループ合算(%)` / `共同保有者数` / `グループ合算推移` は共同保有グループの実勢で、`analysis_diff` は共同保有時にこちらで Tier/除外を判定する。
 
 | カラム | 説明 |
 |--------|------|
@@ -271,7 +280,7 @@ python fetch_holdings.py
 
 ### trigger_holdings_summary.csv
 
-トリガー企業の大量保有報告書・企業単位サマリー。`search_trigger_holdings.py` で生成。
+トリガー企業の大量保有報告書・企業単位サマリー。`scripts/build_trigger_holdings_wh.py` で生成。
 
 | カラム | 説明 |
 |--------|------|
