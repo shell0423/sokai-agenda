@@ -12,6 +12,7 @@
 """
 from __future__ import annotations
 
+import html
 import logging
 import os
 import sys
@@ -163,3 +164,76 @@ def apply_master_names(meetings) -> int:
             m.company_name = info["name"]
             filled += 1
     return filled
+
+
+def get_holdings(
+    codes: Sequence[str], since: str = "2024-01-01"
+) -> dict[str, list[dict]]:
+    """証券コード(4桁)ごとの大量保有報告を `wh_shareholders` から返す。
+
+    自前のEDINETスキャン(`search_trigger_holdings.py` の Step 2)の置き換え。
+    倉庫は 2026-08-15 に共同保有者の行展開を修復済みで、**保有者1名につき1行**
+    (PK: edinet_code, doc_id, holder_number)になっている。自前パーサ
+    (`src/xbrl_parser.py`)は contextRef を見ないため共同保有で先頭しか拾えず、
+    グループの実勢を大幅に過小評価していた(例 ステラケミファ4109 NAVF は
+    個別4.24%だがグループ合算22.73%)。
+
+    Args:
+        codes: 4桁証券コードのリスト。
+        since: この提出日以降の報告のみ(既定 2024-01-01)。
+
+    Returns:
+        {code4: [{"holder", "holder_type", "ratio", "total_ratio",
+                  "ratio_prev", "joint_count", "purpose", "submit_date",
+                  "is_change", "doc_id"}, ...]}。提出日の昇順。
+        倉庫が無い/失敗した場合は空dict。
+    """
+    codes = [c for c in dict.fromkeys(codes) if c]
+    if not codes:
+        return {}
+    if not (WAREHOUSE_DIR / "client.py").exists():
+        logger.warning("warehouse なし。大量保有の取得はスキップ: %s", WAREHOUSE_DIR)
+        return {}
+    try:
+        if str(WAREHOUSE_DIR) not in sys.path:
+            sys.path.insert(0, str(WAREHOUSE_DIR))
+        from client import connect  # warehouse/client.py
+
+        con = connect(read_only=True)
+        try:
+            placeholders = ",".join("?" for _ in codes)
+            rows = con.execute(
+                "SELECT issuer_sec_code, holder_name, holder_type, holding_ratio, "
+                "total_holding_ratio, holding_ratio_previous, joint_holder_count, "
+                "purpose, submit_date_time, is_change_report, doc_id "
+                "FROM wh_shareholders "
+                f"WHERE issuer_sec_code IN ({placeholders}) "
+                "AND submit_date_time >= CAST(? AS DATE) "
+                "ORDER BY issuer_sec_code, submit_date_time, holder_number",
+                [*codes, since],
+            ).fetchall()
+        finally:
+            con.close()  # 即クローズ=ライターをブロックしない
+    except Exception:
+        logger.warning("warehouse wh_shareholders 取得に失敗（スキップ）", exc_info=True)
+        return {}
+
+    out: dict[str, list[dict]] = {}
+    for (c4, holder, htype, ratio, total, prev, joint, purpose, sd,
+         is_change, doc_id) in rows:
+        # 倉庫の旧era(edinetdb.jp由来)は HTMLエンティティが未デコードのまま入っている
+        # (`Dodge &amp; Cox` 等385行)。解かないと新era(FSA由来・デコード済)と別人扱いになり、
+        # 同じ保有者のタイムラインが2本に割れる。
+        out.setdefault(str(c4), []).append({
+            "holder": html.unescape(holder or "").strip(),
+            "holder_type": htype or "",
+            "ratio": _pct(ratio),
+            "total_ratio": _pct(total),
+            "ratio_prev": _pct(prev),
+            "joint_count": int(joint) if joint is not None else None,
+            "purpose": html.unescape(purpose or ""),
+            "submit_date": str(sd)[:10] if sd else "",
+            "is_change": str(is_change).lower() == "true",
+            "doc_id": doc_id or "",
+        })
+    return out
