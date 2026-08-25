@@ -77,7 +77,8 @@ def _connect():
         sys.path.insert(0, str(WAREHOUSE_DIR))
     from client import connect  # warehouse/client.py
 
-    return connect(read_only=True)
+    # ⚠ ka(kessanai.duckdb) は開かない。理由は warehouse_client.WH_SOURCES の注記。
+    return connect(read_only=True, attach=("jq", "edn", "td", "jpx"))
 
 
 def evaluate() -> dict:
