@@ -19,6 +19,15 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+#: 倉庫で ATTACH するソース。**`ka`(kessanai.duckdb) は開かない。**
+#: DuckDB は「1ライタ or 複数リーダ」なので、使わないファイルでも**開いているだけで
+#: 相手の書き込みを止める**。倉庫では不動産スイープが 80秒ごとに kessanai.duckdb へ
+#: 書いており、`connect()` を引数なしで呼ぶと ka も ATTACH してこれとぶつかる
+#: （こちらはリトライを持たないので即エラー）。このプロジェクトが読むのは
+#: wh_security / wh_shareholders / wh_shareholders_latest だけで、いずれも ka 不要。
+#: 同じ対処を kabusoku と 投資Wiki通知/healthcheck.sh でも入れてある。
+WH_SOURCES = ("jq", "edn", "td", "jpx")
+
 logger = logging.getLogger(__name__)
 
 WAREHOUSE_DIR = Path(
@@ -39,7 +48,7 @@ def get_stock_master() -> dict[str, dict[str, str]]:
             sys.path.insert(0, str(WAREHOUSE_DIR))
         from client import connect  # warehouse/client.py
 
-        con = connect(read_only=True)
+        con = connect(read_only=True, attach=WH_SOURCES)
         try:
             rows = con.execute(
                 "SELECT code, name, sector17_name, market_name FROM wh_security"
@@ -108,7 +117,7 @@ def get_fundamentals(codes: Sequence[str]) -> dict[str, dict]:
             sys.path.insert(0, str(WAREHOUSE_DIR))
         from client import connect  # warehouse/client.py
 
-        con = connect(read_only=True)
+        con = connect(read_only=True, attach=WH_SOURCES)
         try:
             placeholders = ",".join("?" for _ in codes)
             rows = con.execute(
@@ -199,7 +208,7 @@ def get_holdings(
             sys.path.insert(0, str(WAREHOUSE_DIR))
         from client import connect  # warehouse/client.py
 
-        con = connect(read_only=True)
+        con = connect(read_only=True, attach=WH_SOURCES)
         try:
             placeholders = ",".join("?" for _ in codes)
             rows = con.execute(
@@ -209,7 +218,13 @@ def get_holdings(
                 "FROM wh_shareholders "
                 f"WHERE issuer_sec_code IN ({placeholders}) "
                 "AND submit_date_time >= CAST(? AS DATE) "
-                "ORDER BY issuer_sec_code, submit_date_time, holder_number",
+                # 同日に複数の報告書が出ることがある（実例 3569セーレン×オアシス: 2024-11-14 に
+                # S100UPMI 6.61% と S100UPWN 0.70% の2件）。submit_date_time だけで並べると
+                # 同着の順序が DuckDB 依存＝実行ごとに「最新」が入れ替わり、実戦リストの
+                # 銘柄まで変わる。倉庫の正準ルール（提出日→起算日→doc_id→holder_number）
+                # に揃えて決定的にする。cf. warehouse wh_shareholders_latest
+                "ORDER BY issuer_sec_code, submit_date_time, "
+                "filing_trigger_date, doc_id, holder_number",
                 [*codes, since],
             ).fetchall()
         finally:

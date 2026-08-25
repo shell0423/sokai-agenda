@@ -10,20 +10,25 @@
     <!-- 実行するコマンド: プロジェクト直下に cd してから publish.py を回す。
          launchd の CWD 既定は "/"（読み取り専用）で EROFS になるため必ず明示。
 
-         --fast = src.jobs fast のみ（数秒〜1分）。株価/PER/PBR を倉庫から取り直し、
-         実戦リストと docs/index.html を作り直して push する。
+         「fast」オプション = src.jobs fast のみ（数秒〜1分）。株価/PER/PBR を倉庫から
+         取り直し、実戦リストと docs/index.html を作り直して push する。
          総会データ(EDINET)の再スキャンは年1回の季節作業なので日次では回さない
-         （総会後は手動で `.venv/bin/python scripts/publish.py`＝フル更新）。 -->
+         （総会後は手動で `.venv/bin/python scripts/publish.py`＝フル更新）。
+
+         ⚠ XML コメント内に連続ハイフンを書かないこと。plutil と launchd は通すが
+            Python の expat が not well-formed で落ちる（このファイルで実際に起きていた）。
+
+         ⚠ 絶対パス（/Users/<ユーザー名>/…）を書かないこと。このリポジトリは
+            GitHub で公開されているため、書くと macOS のユーザー名が露出する。
+            zsh の -lc 経由なら ~ が展開される（plist 自体は展開しない）。
+            ログも StandardOutPath ではなくシェル内でリダイレクトする
+            （StandardOutPath は ~ を展開しないため）。 -->
     <key>ProgramArguments</key>
     <array>
-        <string>/bin/bash</string>
+        <string>/bin/zsh</string>
         <string>-lc</string>
-        <string>cd /Users/nikihiroki/Claude/株主総会議案分析 &amp;&amp; .venv/bin/python scripts/publish.py --fast</string>
+        <string>cd ~/Claude/株主総会議案分析 &amp;&amp; mkdir -p output/logs &amp;&amp; .venv/bin/python scripts/publish.py --fast &gt;&gt; output/logs/launchd_stdout.log 2&gt;&gt; output/logs/launchd_stderr.log</string>
     </array>
-
-    <!-- 作業ディレクトリを明示 -->
-    <key>WorkingDirectory</key>
-    <string>/Users/nikihiroki/Claude/株主総会議案分析</string>
 
     <!-- 毎日 06:00 JST に実行（総会シーズンの臨時報告書を翌朝反映） -->
     <key>StartCalendarInterval</key>
@@ -37,11 +42,5 @@
     <!-- ロード直後は走らせない（RunAtLoad=false）。手動テストは launchctl kickstart で -->
     <key>RunAtLoad</key>
     <false/>
-
-    <!-- 標準出力・エラー出力のログファイル -->
-    <key>StandardOutPath</key>
-    <string>/Users/nikihiroki/Claude/株主総会議案分析/output/logs/launchd_stdout.log</string>
-    <key>StandardErrorPath</key>
-    <string>/Users/nikihiroki/Claude/株主総会議案分析/output/logs/launchd_stderr.log</string>
 </dict>
 </plist>
